@@ -131,3 +131,44 @@ frontend/
   back to MM/DD, since bank exports here are overwhelmingly day-first.
 - Secrets live in `.env` (gitignored); only `.env.example` files are committed. The
   Anthropic API key is the only secret in the whole app.
+
+## Deploying (Render + Netlify)
+
+Netlify hosts the static frontend build; it can't run the FastAPI backend (Prophet/
+pandas/scikit-learn are too heavy for serverless functions), so the backend needs a real
+server — this repo is set up for Render, but any Python host works.
+
+### Backend on Render
+
+Either use the included [`render.yaml`](render.yaml) blueprint (**New → Blueprint**,
+point it at this repo — it provisions the web service and a free Postgres database
+together), or configure a Web Service by hand:
+
+- Root directory: `backend`
+- Build command: `pip install -r requirements.txt`
+- Start command: `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Environment variables: `DATABASE_URL` (Render's Postgres connection string —
+  `postgresql://...` works as-is, psycopg2 is the default driver), `APP_ENV=production`,
+  `DEFAULT_CURRENCY=INR`,
+  `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL=claude-sonnet-4-6`, `MAX_CSV_UPLOAD_MB=5`, and
+  `CORS_ORIGINS` set to a JSON array containing your Netlify URL, e.g.
+  `["https://your-site.netlify.app"]`.
+
+Once it's live, seed demo data via Render's Shell tab: `python -m scripts.seed_demo_data`.
+
+### Frontend on Netlify
+
+[`netlify.toml`](netlify.toml) at the repo root already points Netlify at `frontend/`,
+builds with `npm run build`, publishes `dist/`, and redirects all paths to `index.html`
+for React Router. In the Netlify dashboard:
+
+- **Add new site → Import an existing project**, pick this repo (base directory/build
+  settings are read from `netlify.toml` automatically)
+- Set the environment variable `VITE_API_BASE_URL` to your Render backend's URL (e.g.
+  `https://finpilot-backend.onrender.com`) — Vite bakes this in at build time, so set it
+  *before* the first deploy, or trigger a redeploy after adding it
+- Once you have the Netlify URL, go back to Render and update `CORS_ORIGINS` to include
+  it, or the browser will block the API calls
+
+Render's free tier spins down on inactivity — the first request after idling can take
+10-30 seconds to wake back up.
