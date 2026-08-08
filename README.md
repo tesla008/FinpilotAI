@@ -1,0 +1,133 @@
+# FinPilot AI
+
+An AI-driven personal finance platform: spending analysis, forecasting, and grounded AI
+advice, built as a final-year engineering capstone.
+
+Single-tenant, local/demo build — there is no login. Everything in the app belongs to the
+one person running it, which keeps every query and endpoint simpler: no `user_id`
+anywhere, no ownership checks, no session state.
+
+Monorepo: [`backend/`](backend) (FastAPI) and [`frontend/`](frontend) (React + Vite).
+
+## What's here
+
+- **Data in**: CSV/bank-statement upload with column mapping + preview, manual entry,
+  dedup on re-upload, and a rules-then-ML auto-categorizer that learns from your
+  corrections
+- **Analysis**: monthly/category breakdowns, trend detection vs a 3-month rolling
+  average, anomaly detection, budget adherence, savings rate — all pure functions in
+  [`backend/app/analysis/`](backend/app/analysis), independently unit tested
+- **Forecasting**: Prophet (primary) with an ARIMA baseline for comparison, a
+  low-confidence average fallback under 3 months of history, and prediction intervals
+  throughout
+- **AI recommendations**: Claude-generated advice grounded only in your real numbers,
+  schema-validated, cached per data-version, and never able to break the dashboard if the
+  API is unavailable
+- **Budgets & goals**: monthly limits with live progress/overspend flags; savings goals
+  with a projected completion date based on your actual recent savings rate
+- **What-if simulator**: per-category sliders with instant client-side projections
+  (revised spend, savings rate, months-to-goal), plus an optional AI commentary call
+- **Reports**: monthly summary view, CSV export of transactions, PDF export of the
+  monthly summary with a chart
+
+## Prerequisites
+
+- Python 3.11+ (developed against 3.14 here, including Prophet — it installed and ran
+  cleanly, but if you're on an older Python this is untested territory in the other
+  direction)
+- Node 20+
+- Postgres 16 (optional — SQLite is the zero-config local default)
+- An [Anthropic API key](https://console.anthropic.com/) for the AI panel (optional —
+  the rest of the app works without it; the AI panel just shows a "temporarily
+  unavailable" state)
+
+## Backend setup
+
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+alembic upgrade head
+uvicorn app.main:app --reload --port 8000
+```
+
+The API is now at `http://localhost:8000` (`/health` for a liveness check, `/docs` for
+the interactive Swagger UI). System categories (Food, Rent, Transport, …) are seeded
+automatically on startup.
+
+Seed ~12 months of realistic synthetic transactions so the dashboard isn't empty:
+
+```bash
+python -m scripts.seed_demo_data          # skips if transactions already exist
+python -m scripts.seed_demo_data --reset  # wipes and reseeds
+```
+
+By default `DATABASE_URL` in `.env` points at a local SQLite file — no extra setup
+needed. To use Postgres instead:
+
+```bash
+docker compose up -d postgres
+pip install psycopg2-binary
+# then set in backend/.env:
+# DATABASE_URL=postgresql+psycopg2://finpilot:finpilot@localhost:5432/finpilot
+alembic upgrade head
+```
+
+Run the test suite:
+
+```bash
+source venv/bin/activate
+python3 -m pytest
+```
+
+## Frontend setup
+
+```bash
+cd frontend
+npm install
+cp .env.example .env
+npm run dev
+```
+
+The app is now at `http://localhost:5173` and opens directly on the dashboard.
+
+## Repo layout
+
+```
+backend/
+  app/
+    analysis/       # pure functions: trends, anomalies, budgets, savings — no DB calls
+    forecasting/     # Prophet + ARIMA + cold-start fallback
+    ai/              # Claude prompt, schema, recommendation orchestration + caching
+    categorization/  # keyword rules + scikit-learn classifier
+    ingestion/       # CSV parsing, column-mapping, dedup, upload staging
+    reports/         # CSV/PDF export, monthly summary
+    routers/         # FastAPI endpoints
+    models/          # SQLAlchemy models (no users table)
+  alembic/           # migrations
+  scripts/           # seed_demo_data.py
+  tests/
+frontend/
+  src/
+    pages/           # Dashboard, Transactions, Budgets, Goals, WhatIf, Reports
+    components/      # Layout, charts, AI panel, upload modal, stat tiles
+    lib/              # API client, types, money/date formatting, currency context
+```
+
+## Design notes
+
+- **Money**: stored as signed integers in the smallest currency unit (paise for the
+  default INR), never floats. Currency is a setting (`DEFAULT_CURRENCY`), not hardcoded.
+- **Theme**: light-only by design — warm off-white base, white cards lifted with soft
+  shadows (not borders), one accent color (emerald) used sparingly for key figures and
+  the primary CTA, a tinted-gradient surface for the AI panel to set it apart from the
+  data cards.
+- **AI outages degrade, never break**: `backend/app/ai/recommendations.py` retries once
+  on a schema failure, then falls back to a static "temporarily unavailable" response —
+  charts and the rest of the dashboard render regardless of the Claude API's health.
+- **CSV parsing defaults to DD/MM/YYYY** (the default locale is INR/India) before falling
+  back to MM/DD, since bank exports here are overwhelmingly day-first.
+- Secrets live in `.env` (gitignored); only `.env.example` files are committed. The
+  Anthropic API key is the only secret in the whole app.
