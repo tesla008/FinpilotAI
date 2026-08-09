@@ -6,6 +6,7 @@ import { formatMoney } from '../lib/format'
 import { StatTile } from '../components/StatTile'
 import { TrendChart } from '../components/TrendChart'
 import { CategoryBreakdown } from '../components/CategoryBreakdown'
+import { MarketIndicesSection } from '../components/MarketIndicesSection'
 import { AIPanel, fetchRecommendations } from '../components/AIPanel'
 import type { BudgetAdherence, Forecast, Recommendations } from '../lib/types'
 
@@ -97,6 +98,8 @@ export function DashboardPage() {
           <CategoryBreakdown data={categoryBreakdown} currency={currency} />
         </div>
       </div>
+
+      <MarketIndicesSection />
 
       <AIPanel data={recommendations} isLoading={aiLoading} onRefresh={handleAiRefresh} />
     </div>

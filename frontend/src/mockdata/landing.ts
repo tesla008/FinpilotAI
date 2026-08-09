@@ -67,3 +67,66 @@ export const featureBands: FeatureBand[] = [
 ]
 
 export const savingsGoalPct = 70
+
+// ---- How it works ----
+
+export interface HowItWorksStep {
+  number: number
+  title: string
+  body: string
+}
+
+export const howItWorksSteps: HowItWorksStep[] = [
+  { number: 1, title: 'Upload or scan', body: 'Drop a bank statement CSV, or scan a UPI payment screenshot straight from your phone.' },
+  { number: 2, title: 'FinPilot reads and categorizes', body: 'Every transaction is extracted, categorized, and checked for anything unusual — no manual tagging.' },
+  { number: 3, title: 'Get a forecast and a next move', body: 'See what next month costs before it starts, and one specific action to act on today.' },
+]
+
+// ---- Scan a screenshot band ----
+
+export const scanExample = {
+  app: 'GPay',
+  status: 'Payment successful',
+  amountMinor: 45_000, // ₹450
+  merchant: 'Swiggy',
+  dateLabel: '9 Aug, 8:45 pm',
+  reference: 'UPI Ref No 234567891023',
+}
+
+export const scanExtractedFields = [
+  { label: 'Amount', value: '₹450.00' },
+  { label: 'Merchant', value: 'Swiggy' },
+  { label: 'Date', value: '9 Aug 2026' },
+  { label: 'Category', value: 'Food' },
+]
+
+// ---- Stay safe (ported from design/FinPilot Scam Awareness.dc.html) ----
+// The reference's report-fraud contact was US-specific (FTC); swapped for
+// India's national cyber-crime helpline/portal so the claim is actually
+// true for this app's audience.
+
+export interface StaySafeCard {
+  title: string
+  desc: string
+}
+
+export const staySafeCards: StaySafeCard[] = [
+  { title: 'Never share your OTP', desc: 'FinPilot support will never ask you to read out or forward a one-time passcode.' },
+  { title: 'Never share your password', desc: "We'll never call, text, or email asking you to confirm your login or password." },
+  { title: 'Never act on urgency', desc: 'Scammers create urgency. FinPilot never demands you move money immediately.' },
+  { title: 'Never trust unknown links', desc: "We'll never send an unsolicited link asking you to log in or verify your account." },
+]
+
+export const reportFraud = {
+  phone: '1930',
+  portal: 'cybercrime.gov.in',
+  portalUrl: 'https://cybercrime.gov.in',
+}
+
+// ---- Privacy strip ----
+
+export const privacyClaims = [
+  'No login required',
+  'We only read transaction data — we can never move money',
+  'Screenshots are read and discarded, never stored',
+]

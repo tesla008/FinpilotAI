@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { HeroBrand } from '../components/HeroBrand'
 import { BrandMark } from '../components/BrandMark'
+import { Reveal } from '../components/Reveal'
 import { useCurrency } from '../lib/currency'
 import { formatMoney } from '../lib/format'
 import { categoryPillColors } from '../lib/categoryColors'
@@ -11,7 +12,13 @@ import {
   heroPreview,
   heroStatChips,
   heroTransactions,
+  howItWorksSteps,
+  privacyClaims,
+  reportFraud,
   savingsGoalPct,
+  scanExample,
+  scanExtractedFields,
+  staySafeCards,
   type FeatureBand,
 } from '../mockdata/landing'
 import './LandingPage.css'
@@ -186,9 +193,176 @@ export function LandingPage() {
       {/* FEATURE BANDS */}
       <section className="mx-auto mt-24 max-w-[1320px] px-6 sm:mt-[140px] sm:px-12">
         {featureBands.map((band) => (
-          <FeatureRow key={band.eyebrow} band={band} />
+          <Reveal key={band.eyebrow}>
+            <FeatureRow band={band} />
+          </Reveal>
         ))}
       </section>
+
+      {/* HOW IT WORKS */}
+      <Reveal>
+        <section className="mx-auto max-w-[1320px] px-6 py-20 sm:px-12">
+          <div className="mb-14 text-center">
+            <div className="mb-3.5 text-caption font-semibold tracking-[0.08em] text-primary uppercase">
+              How it works
+            </div>
+            <h2 className="font-heading text-h2 font-bold tracking-tight text-heading">Three steps, start to finish.</h2>
+          </div>
+          <div className="grid grid-cols-1 gap-12 sm:grid-cols-3">
+            {howItWorksSteps.map((step) => (
+              <div key={step.number} className="text-center">
+                <div className="font-heading mx-auto mb-5 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-[17px] font-bold text-white">
+                  {step.number}
+                </div>
+                <h3 className="font-heading mb-2.5 text-[18px] font-semibold text-heading">{step.title}</h3>
+                <p className="mx-auto max-w-[280px] text-[14.5px] leading-relaxed text-secondary">{step.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </Reveal>
+
+      {/* SCAN A SCREENSHOT */}
+      <Reveal>
+        <section className="mx-auto max-w-[1320px] px-6 py-20 sm:px-12">
+          <div className="mb-14 text-center">
+            <div className="mb-3.5 text-caption font-semibold tracking-[0.08em] text-primary uppercase">
+              Scan a screenshot
+            </div>
+            <h2 className="font-heading text-h2 font-bold tracking-tight text-heading">
+              A payment confirmation in, a transaction out.
+            </h2>
+            <p className="mx-auto mt-3.5 max-w-[480px] text-base text-secondary">
+              UPI success screens, bank SMS, receipts — FinPilot reads the fields for you and asks you to confirm.
+            </p>
+          </div>
+
+          <div className="mx-auto flex max-w-[720px] flex-col items-center gap-8 sm:flex-row sm:justify-center">
+            {/* PHONE MOCKUP */}
+            <div className="w-[220px] flex-none rounded-[28px] border-[6px] border-heading bg-card p-1 shadow-[0_30px_60px_-24px_rgba(30,30,40,0.35)]">
+              <div className="rounded-[22px] bg-canvas px-4 pt-6 pb-8">
+                <div className="mb-4 flex flex-col items-center">
+                  <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-positive-soft">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                      <path d="M5 13l4 4L19 7" stroke="var(--color-positive-ink)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                  <div className="text-[12px] font-semibold text-positive-ink">{scanExample.status}</div>
+                  <div className="mt-0.5 text-[10px] text-muted">via {scanExample.app}</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-heading text-h3 font-bold tabular-nums text-heading">₹450.00</div>
+                  <div className="mt-1 text-[12px] text-secondary">Paid to {scanExample.merchant}</div>
+                  <div className="mt-3 text-[10px] text-muted">{scanExample.dateLabel}</div>
+                  <div className="mt-0.5 text-[9px] text-muted">{scanExample.reference}</div>
+                </div>
+              </div>
+            </div>
+
+            <svg className="hidden flex-none sm:block" width="40" height="24" viewBox="0 0 40 24" fill="none">
+              <path d="M2 12h32M26 4l8 8-8 8" stroke="var(--color-cyan)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <svg className="flex-none sm:hidden" width="24" height="32" viewBox="0 0 24 32" fill="none">
+              <path d="M12 2v24M4 20l8 8 8-8" stroke="var(--color-cyan)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+
+            {/* EXTRACTED FIELDS */}
+            <div className="card-lifted w-full max-w-[280px] flex-none p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <span
+                  className="inline-block h-4 w-4 rounded-[4px]"
+                  style={{ background: 'linear-gradient(135deg, var(--color-cyan), var(--color-primary))' }}
+                />
+                <span className="text-[11px] font-semibold tracking-wide text-primary uppercase">Extracted</span>
+              </div>
+              <div className="flex flex-col gap-3">
+                {scanExtractedFields.map((f) => (
+                  <div key={f.label} className="flex items-center justify-between border-b border-hairline pb-2.5 last:border-0 last:pb-0">
+                    <span className="text-[12px] text-muted">{f.label}</span>
+                    <span className="text-[13px] font-semibold text-body">{f.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      </Reveal>
+
+      {/* STAY SAFE */}
+      <Reveal>
+        <section className="relative overflow-hidden rounded-3xl mx-6 sm:mx-12" style={{ background: '#FAF6EF' }}>
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(circle at 15% 20%, color-mix(in srgb, var(--color-overspend) 15%, transparent), transparent 55%), radial-gradient(circle at 85% 10%, color-mix(in srgb, var(--color-warning) 20%, transparent), transparent 50%)',
+            }}
+          />
+          <div className="relative px-6 pt-14 sm:px-12">
+            <div className="mx-auto mb-10 max-w-[560px] text-center">
+              <h2 className="font-heading text-h2 font-bold tracking-tight text-heading">Stay safe with FinPilot</h2>
+              <p className="mt-2.5 text-[15px] text-secondary">
+                Financial scams often impersonate trusted apps. Here's what FinPilot will never ask of you.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {staySafeCards.map((card) => (
+                <div key={card.title} className="rounded-lg bg-card p-6 shadow-[0_20px_44px_-26px_rgba(30,30,40,0.12)]">
+                  <div className="font-heading mb-2 text-[16px] font-bold text-heading">{card.title}</div>
+                  <div className="text-[13.5px] leading-relaxed text-secondary">{card.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="relative mt-11 flex flex-col items-center justify-between gap-4 bg-heading px-6 py-6 sm:flex-row sm:px-12">
+            <div>
+              <div className="mb-1 text-xs text-white/60">Think you've been targeted? Report it.</div>
+              <div className="font-heading text-h3 font-bold tabular-nums text-white">{reportFraud.phone}</div>
+            </div>
+            <a href={reportFraud.portalUrl} className="text-sm font-semibold text-cyan underline">
+              {reportFraud.portal}
+            </a>
+          </div>
+        </section>
+      </Reveal>
+
+      {/* PRIVACY STRIP */}
+      <Reveal>
+        <section className="mx-auto max-w-[1320px] px-6 py-16 sm:px-12">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
+            {privacyClaims.map((claim) => (
+              <div key={claim} className="flex items-start gap-3">
+                <svg className="mt-0.5 flex-none" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" fill="var(--color-positive-soft)" />
+                  <path d="M8 12.5l2.5 2.5L16 9" stroke="var(--color-positive-ink)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span className="text-[14px] leading-snug text-secondary">{claim}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </Reveal>
+
+      {/* FINAL CTA */}
+      <Reveal>
+        <section className="relative mx-6 mb-16 overflow-hidden rounded-3xl px-6 py-20 text-center sm:mx-12 sm:px-12">
+          <div className="hero-mesh pointer-events-none absolute inset-0 z-0" style={{ opacity: 0.35 }} />
+          <div className="relative z-10">
+            <h2 className="font-heading text-h1 font-bold tracking-tight text-heading">
+              See next month before it starts.
+            </h2>
+            <p className="mx-auto mt-3.5 max-w-[420px] text-base text-secondary">
+              Upload a statement or scan a screenshot — FinPilot does the rest.
+            </p>
+            <Link
+              to="/import"
+              className="mt-8 inline-block rounded-xl bg-primary px-8 py-4 text-base font-semibold text-white shadow-[0_12px_28px_-10px_rgba(67,56,202,0.5)] transition hover:brightness-110"
+            >
+              Upload a statement
+            </Link>
+          </div>
+        </section>
+      </Reveal>
 
       {/* FOOTER */}
       <footer className="mx-auto flex max-w-[1320px] flex-col items-center gap-4 px-6 pt-12 pb-14 text-center sm:flex-row sm:justify-between sm:px-12 sm:text-left">

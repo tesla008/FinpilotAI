@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.core.seed_categories import ensure_system_categories
-from app.routers import ai, analysis, budgets, categories, forecasts, goals, reports, transactions
+from app.routers import ai, analysis, budgets, categories, forecasts, goals, markets, reports, transactions
 
 settings = get_settings()
 
@@ -39,6 +39,7 @@ app.include_router(reports.router)
 app.include_router(ai.router)
 app.include_router(analysis.router)
 app.include_router(forecasts.router)
+app.include_router(markets.router)
 
 
 @app.get("/health")

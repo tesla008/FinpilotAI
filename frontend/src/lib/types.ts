@@ -142,6 +142,32 @@ export interface UploadCommitResponse {
   unparseable_skipped: number
 }
 
+// --- Market indices ---
+
+export interface IntradayPoint {
+  timestamp: number
+  value: number
+}
+
+export interface IndexData {
+  name: string
+  symbol: string
+  current: number
+  change: number
+  change_pct: number
+  previous_close: number
+  points: IntradayPoint[]
+  timestamp: number
+  is_open: boolean
+  is_stale: boolean
+}
+
+export interface MarketIndicesResponse {
+  indices: IndexData[]
+  source: string
+  delayed_minutes: number
+}
+
 // --- Screenshot transaction extraction ---
 
 export interface ExtractionConfidence {
