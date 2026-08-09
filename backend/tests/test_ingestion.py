@@ -1,5 +1,6 @@
 from app.ingestion.csv_parser import ColumnMapping, build_preview, normalize_rows, suggest_mapping
 from app.ingestion.dedup import dedupe
+from app.ingestion.service import commit_rows
 
 
 def test_suggest_mapping_recognizes_signed_amount_headers():
@@ -110,3 +111,37 @@ def test_dedup_drops_duplicates_within_same_batch(db_session):
 
     assert len(kept) == 1
     assert duplicate_count == 1
+
+
+def test_commit_rows_applies_category_override_by_source_row_index(db_session):
+    from app.models.category import Category
+    from app.models.transaction import Transaction
+
+    category = Category(name="OverrideTestTravel", is_system=False)
+    db_session.add(category)
+    db_session.commit()
+
+    # Row 0 has a description no keyword rule matches, so without an
+    # override it would land uncategorized.
+    csv_bytes = (
+        b"Date,Description,Amount\n"
+        b"06/08/2026,ZzzUnrecognizedMerchant,-500.00\n"
+        b"06/08/2026,AnotherUnrecognizedOne,-700.00\n"
+    )
+    mapping = ColumnMapping(date="Date", description="Description", amount="Amount")
+
+    inserted, duplicates, unparseable = commit_rows(
+        db_session, csv_bytes, mapping, category_overrides={0: "OverrideTestTravel"}
+    )
+
+    assert inserted == 2
+    assert duplicates == 0
+    assert unparseable == 0
+
+    overridden = db_session.query(Transaction).filter(Transaction.description == "ZzzUnrecognizedMerchant").first()
+    untouched = db_session.query(Transaction).filter(Transaction.description == "AnotherUnrecognizedOne").first()
+
+    assert overridden.category_id == category.id
+    assert overridden.category_confirmed is True
+    assert untouched.category_id is None
+    assert untouched.category_confirmed is False

@@ -111,3 +111,55 @@ export interface Recommendations {
   recommendations: RecommendationItem[]
   risks: string[]
 }
+
+// --- CSV import ---
+
+export interface ColumnMapping {
+  date: string | null
+  description: string | null
+  amount: string | null
+  debit: string | null
+  credit: string | null
+}
+
+export interface CategoryGuess {
+  category: string | null
+  confidence: number | null
+}
+
+export interface UploadPreviewResponse {
+  columns: string[]
+  suggested_mapping: ColumnMapping
+  sample_rows: Record<string, string>[]
+  category_guesses: CategoryGuess[]
+  total_rows: number
+  upload_token: string
+}
+
+export interface UploadCommitResponse {
+  inserted: number
+  duplicates_skipped: number
+  unparseable_skipped: number
+}
+
+// --- Screenshot transaction extraction ---
+
+export interface ExtractionConfidence {
+  amount: number
+  merchant: number
+  category: number
+}
+
+export interface TransactionExtraction {
+  is_transaction: boolean
+  amount: number | null
+  currency: string | null
+  direction: 'debit' | 'credit' | null
+  merchant: string | null
+  datetime: string | null
+  reference: string | null
+  category: string | null
+  confidence: ExtractionConfidence
+  unreadable_fields: string[]
+  notes: string | null
+}

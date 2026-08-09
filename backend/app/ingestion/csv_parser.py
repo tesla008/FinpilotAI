@@ -84,6 +84,9 @@ class NormalizedRow:
     date: str  # ISO yyyy-mm-dd
     description: str
     amount_minor: int  # signed
+    source_row_index: int  # position in the original CSV — lets a category
+    # override picked in the preview (which only shows the first N rows)
+    # survive rows being skipped as unparseable in between.
 
 
 def normalize_rows(raw: bytes, mapping: ColumnMapping) -> tuple[list[NormalizedRow], int]:
@@ -95,7 +98,7 @@ def normalize_rows(raw: bytes, mapping: ColumnMapping) -> tuple[list[NormalizedR
     rows: list[NormalizedRow] = []
     skipped = 0
 
-    for _, record in df.iterrows():
+    for row_index, record in df.iterrows():
         raw_date = str(record[mapping.date]).strip()
         # Default currency/locale is INR, where bank exports are overwhelmingly
         # DD/MM/YYYY — try that first so an unambiguous "01/08" reads as 1 Aug,
@@ -135,6 +138,7 @@ def normalize_rows(raw: bytes, mapping: ColumnMapping) -> tuple[list[NormalizedR
                 date=parsed_date.date().isoformat(),
                 description=description,
                 amount_minor=int(amount_minor),
+                source_row_index=int(row_index),
             )
         )
 

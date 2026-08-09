@@ -23,3 +23,22 @@ def categorize(db: Session, description: str) -> tuple[str | None, bool]:
             return category.id, True
 
     return None, False
+
+
+def categorize_with_confidence(db: Session, description: str) -> tuple[str | None, float | None]:
+    """Returns (category_name, confidence). Confidence is only ever a real
+    number when the ML classifier produced one — a keyword-rule match is
+    "confident" in the boolean sense `categorize()` uses, but we don't have
+    an actual probability for it, so it comes back as None rather than a
+    made-up number. Used by the CSV preview, which shows the confidence bar
+    only when there's a genuine score behind it."""
+    ml_result = classifier.predict(description)
+    if ml_result:
+        category_name, confidence = ml_result
+        return category_name, confidence
+
+    rule_match = match_keyword_rule(description)
+    if rule_match:
+        return rule_match, None
+
+    return None, None

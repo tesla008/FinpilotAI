@@ -55,10 +55,19 @@ class ColumnMappingSchema(BaseModel):
     credit: str | None = None
 
 
+class CategoryGuess(BaseModel):
+    category: str | None
+    # Only set when the ML classifier produced a real probability — a
+    # keyword-rule match has no numeric confidence to show, so this stays
+    # null rather than a made-up number.
+    confidence: float | None = None
+
+
 class UploadPreviewResponse(BaseModel):
     columns: list[str]
     suggested_mapping: ColumnMappingSchema
     sample_rows: list[dict]
+    category_guesses: list[CategoryGuess]
     total_rows: int
     upload_token: str
 
@@ -66,6 +75,9 @@ class UploadPreviewResponse(BaseModel):
 class UploadCommitRequest(BaseModel):
     upload_token: str
     mapping: ColumnMappingSchema
+    # Keyed by the row's original CSV position (0-based), only for rows the
+    # user edited the category pill on in the preview table.
+    category_overrides: dict[int, str] = Field(default_factory=dict)
 
 
 class UploadCommitResponse(BaseModel):

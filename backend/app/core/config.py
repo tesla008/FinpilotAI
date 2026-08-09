@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-sonnet-4-6"
 
     max_csv_upload_mb: int = 5
+    max_screenshot_upload_mb: int = 8
+    screenshot_extract_rate_limit_per_minute: int = 6
 
 
 @lru_cache

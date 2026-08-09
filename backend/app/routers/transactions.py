@@ -1,19 +1,23 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.ai.extraction import ExtractionFailedError, extract_transaction
+from app.ai.vision_schema import TransactionExtraction
 from app.categorization import classifier
-from app.categorization.service import categorize
+from app.categorization.service import categorize, categorize_with_confidence
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.rate_limit import enforce_ip_rate_limit
 from app.ingestion import staging
 from app.ingestion.csv_parser import ColumnMapping, build_preview
 from app.ingestion.service import commit_rows
 from app.models.category import Category
 from app.models.transaction import Transaction
 from app.schemas.transaction import (
+    CategoryGuess,
     TransactionCreate,
     TransactionResponse,
     TransactionUpdate,
@@ -125,7 +129,7 @@ def delete_transaction(transaction_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/upload/preview", response_model=UploadPreviewResponse)
-async def upload_preview(file: UploadFile = File(...)):
+async def upload_preview(file: UploadFile = File(...), db: Session = Depends(get_db)):
     raw = await file.read()
     if len(raw) > settings.max_csv_upload_mb * 1024 * 1024:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"File exceeds {settings.max_csv_upload_mb}MB limit.")
@@ -137,11 +141,23 @@ async def upload_preview(file: UploadFile = File(...)):
     except Exception as exc:  # malformed CSV, bad encoding, etc.
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Could not parse CSV: {exc}") from exc
 
+    # Best-effort category guess per previewed row, shown next to the sample
+    # data so the user can correct it before committing — not persisted here.
+    desc_col = preview.suggested_mapping.description
+    guesses: list[CategoryGuess] = []
+    if desc_col:
+        for row in preview.sample_rows:
+            category_name, confidence = categorize_with_confidence(db, str(row.get(desc_col, "")))
+            guesses.append(CategoryGuess(category=category_name, confidence=confidence))
+    else:
+        guesses = [CategoryGuess(category=None, confidence=None) for _ in preview.sample_rows]
+
     token = staging.stage(raw)
     return UploadPreviewResponse(
         columns=preview.columns,
         suggested_mapping=preview.suggested_mapping.__dict__,
         sample_rows=preview.sample_rows,
+        category_guesses=guesses,
         total_rows=preview.total_rows,
         upload_token=token,
     )
@@ -158,8 +174,26 @@ def upload_commit(payload: UploadCommitRequest, db: Session = Depends(get_db)):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Column mapping is incomplete.")
 
     try:
-        inserted, duplicates, unparseable = commit_rows(db, raw, mapping)
+        inserted, duplicates, unparseable = commit_rows(db, raw, mapping, payload.category_overrides)
     except Exception as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Could not import CSV: {exc}") from exc
 
     return UploadCommitResponse(inserted=inserted, duplicates_skipped=duplicates, unparseable_skipped=unparseable)
+
+
+@router.post("/extract", response_model=TransactionExtraction)
+async def extract_from_screenshot(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Reads a transaction out of a screenshot via Claude vision. Extract and
+    save are deliberately two separate calls — this endpoint writes nothing
+    to the database and the image is never persisted, only held in memory
+    for the duration of the request."""
+    enforce_ip_rate_limit(request, "extract", max_per_minute=settings.screenshot_extract_rate_limit_per_minute)
+
+    raw = await file.read()
+    if len(raw) > settings.max_screenshot_upload_mb * 1024 * 1024:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Image exceeds {settings.max_screenshot_upload_mb}MB limit.")
+
+    try:
+        return extract_transaction(db, raw)
+    except ExtractionFailedError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
