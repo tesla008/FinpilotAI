@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { BrandMark } from './BrandMark'
 import { ProfileAvatar } from './ProfileAvatar'
+import { FinoLauncher } from './FinoLauncher'
 import { useAuth } from '../context/AuthContext'
 
 const NAV_ITEMS = [
@@ -63,6 +64,8 @@ export function AppShell() {
       <main className="max-w-[1360px] flex-1 px-14 pt-11 pb-20">
         <Outlet />
       </main>
+
+      <FinoLauncher />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 from app.models.budget import Budget
 from app.models.category import Category
+from app.models.fino_message import FinoMessage
 from app.models.forecast import Forecast
 from app.models.goal import Goal
 from app.models.recommendation import Recommendation
@@ -18,4 +19,5 @@ __all__ = [
     "User",
     "RefreshToken",
     "UserProfile",
+    "FinoMessage",
 ]

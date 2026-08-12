@@ -1,5 +1,14 @@
 export type OnboardingStatus = 'not_started' | 'in_progress' | 'completed' | 'skipped'
 
+// --- Fino ---
+
+export interface FinoMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  created_at: string
+}
+
 export interface AuthUser {
   id: string
   email: string

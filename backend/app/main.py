@@ -12,6 +12,7 @@ from app.routers import (
     auth,
     budgets,
     categories,
+    fino,
     forecasts,
     goals,
     markets,
@@ -57,6 +58,7 @@ app.include_router(analysis.router)
 app.include_router(forecasts.router)
 app.include_router(markets.router)
 app.include_router(onboarding.router)
+app.include_router(fino.router)
 
 
 @app.get("/health")
