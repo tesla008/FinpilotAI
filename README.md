@@ -3,9 +3,12 @@
 An AI-driven personal finance platform: spending analysis, forecasting, and grounded AI
 advice, built as a final-year engineering capstone.
 
-Single-tenant, local/demo build — there is no login. Everything in the app belongs to the
-one person running it, which keeps every query and endpoint simpler: no `user_id`
-anywhere, no ownership checks, no session state.
+Multi-tenant with Google sign-in. Every table is scoped by `user_id`, every route
+(except `/api/auth/*` and `/health`) requires a valid session, and every query is
+filtered to the authenticated user via a `get_current_user` dependency rather than a
+convention someone has to remember. Read-only access to your name, email, and profile
+picture only — never Gmail, Drive, or any bank account, and FinPilot can never move
+money.
 
 Monorepo: [`backend/`](backend) (FastAPI) and [`frontend/`](frontend) (React + Vite).
 
@@ -40,6 +43,9 @@ Monorepo: [`backend/`](backend) (FastAPI) and [`frontend/`](frontend) (React + V
 - An [Anthropic API key](https://console.anthropic.com/) for the AI panel (optional —
   the rest of the app works without it; the AI panel just shows a "temporarily
   unavailable" state)
+- A [Google OAuth Client ID](https://console.cloud.google.com/apis/credentials) (Web
+  application type) — required to sign in at all. Add `http://localhost:5173` as an
+  authorized JavaScript origin for local dev.
 
 ## Backend setup
 
@@ -49,6 +55,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
+# then fill in GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and JWT_SECRET (e.g. `openssl rand -hex 32`)
 alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
@@ -56,6 +63,10 @@ uvicorn app.main:app --reload --port 8000
 The API is now at `http://localhost:8000` (`/health` for a liveness check, `/docs` for
 the interactive Swagger UI). System categories (Food, Rent, Transport, …) are seeded
 automatically on startup.
+
+Every route except `/health` and `/api/auth/*` requires a signed-in session, so seeded
+demo data sits unowned (`user_id = NULL`) until someone actually signs in — the first
+Google sign-in ever claims all of it automatically.
 
 Seed ~12 months of realistic synthetic transactions so the dashboard isn't empty:
 
@@ -88,10 +99,12 @@ python3 -m pytest
 cd frontend
 npm install
 cp .env.example .env
+# then set VITE_GOOGLE_CLIENT_ID to the same client ID as the backend's GOOGLE_CLIENT_ID
 npm run dev
 ```
 
-The app is now at `http://localhost:5173` and opens directly on the dashboard.
+The app is now at `http://localhost:5173`. `/` is the public landing page; every app
+route (`/dashboard`, `/import`, …) requires signing in with Google first.
 
 ## Repo layout
 
@@ -150,9 +163,11 @@ together), or configure a Web Service by hand:
 - Environment variables: `DATABASE_URL` (Render's Postgres connection string —
   `postgresql://...` works as-is, psycopg2 is the default driver), `APP_ENV=production`,
   `DEFAULT_CURRENCY=INR`,
-  `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL=claude-sonnet-4-6`, `MAX_CSV_UPLOAD_MB=5`, and
-  `CORS_ORIGINS` set to a JSON array containing your Netlify URL, e.g.
-  `["https://your-site.netlify.app"]`.
+  `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL=claude-sonnet-4-6`, `MAX_CSV_UPLOAD_MB=5`,
+  `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `JWT_SECRET` (`openssl rand -hex 32`),
+  `FRONTEND_URL` set to your Netlify URL, and `CORS_ORIGINS` set to a JSON array
+  containing that same URL, e.g. `["https://your-site.netlify.app"]`. Remember to add
+  your Render URL as an authorized JavaScript origin on the Google OAuth client too.
 
 Once it's live, seed demo data via Render's Shell tab: `python -m scripts.seed_demo_data`.
 

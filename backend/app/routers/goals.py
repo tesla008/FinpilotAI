@@ -6,15 +6,17 @@ from sqlalchemy.orm import Session
 from app.analysis.goals import progress_pct, project_completion_date
 from app.analysis.savings import monthly_savings_rate
 from app.core.database import get_db
+from app.core.security import get_current_user
 from app.forecasting.generate import load_records
 from app.models.goal import Goal
+from app.models.user import User
 from app.schemas.goal import GoalCreate, GoalResponse, GoalUpdate
 
 router = APIRouter(prefix="/goals", tags=["goals"])
 
 
-def _avg_monthly_net(db: Session) -> float:
-    rates = monthly_savings_rate(load_records(db))
+def _avg_monthly_net(db: Session, user_id: str) -> float:
+    rates = monthly_savings_rate(load_records(db, user_id))
     recent = rates[-3:] if len(rates) > 3 else rates
     if not recent:
         return 0.0
@@ -37,36 +39,41 @@ def _to_response(goal: Goal, avg_monthly_net: float) -> GoalResponse:
 
 
 @router.get("", response_model=list[GoalResponse])
-def list_goals(db: Session = Depends(get_db)):
-    avg_net = _avg_monthly_net(db)
-    goals = db.query(Goal).order_by(Goal.target_date).all()
+def list_goals(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    avg_net = _avg_monthly_net(db, current_user.id)
+    goals = db.query(Goal).filter(Goal.user_id == current_user.id).order_by(Goal.target_date).all()
     return [_to_response(g, avg_net) for g in goals]
 
 
 @router.post("", response_model=GoalResponse, status_code=status.HTTP_201_CREATED)
-def create_goal(payload: GoalCreate, db: Session = Depends(get_db)):
-    goal = Goal(**payload.model_dump())
+def create_goal(payload: GoalCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    goal = Goal(user_id=current_user.id, **payload.model_dump())
     db.add(goal)
     db.commit()
     db.refresh(goal)
-    return _to_response(goal, _avg_monthly_net(db))
+    return _to_response(goal, _avg_monthly_net(db, current_user.id))
 
 
 @router.patch("/{goal_id}", response_model=GoalResponse)
-def update_goal(goal_id: str, payload: GoalUpdate, db: Session = Depends(get_db)):
-    goal = db.query(Goal).filter(Goal.id == goal_id).first()
+def update_goal(
+    goal_id: str,
+    payload: GoalUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == current_user.id).first()
     if not goal:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Goal not found.")
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(goal, field, value)
     db.commit()
     db.refresh(goal)
-    return _to_response(goal, _avg_monthly_net(db))
+    return _to_response(goal, _avg_monthly_net(db, current_user.id))
 
 
 @router.delete("/{goal_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_goal(goal_id: str, db: Session = Depends(get_db)):
-    goal = db.query(Goal).filter(Goal.id == goal_id).first()
+def delete_goal(goal_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == current_user.id).first()
     if not goal:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Goal not found.")
     db.delete(goal)

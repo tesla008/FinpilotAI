@@ -126,7 +126,7 @@ export const reportFraud = {
 // ---- Privacy strip ----
 
 export const privacyClaims = [
-  'No login required',
-  'We only read transaction data — we can never move money',
+  'We never connect to a bank account and can never move money',
+  'We only read transaction data — never Gmail, Drive, or anything else in your Google account',
   'Screenshots are read and discarded, never stored',
 ]

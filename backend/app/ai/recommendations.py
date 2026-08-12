@@ -27,15 +27,15 @@ FALLBACK_OUTPUT = RecommendationOutput(
 )
 
 
-def get_recommendations(db: Session, force_refresh: bool = False) -> tuple[RecommendationOutput, bool]:
+def get_recommendations(db: Session, user_id: str, force_refresh: bool = False) -> tuple[RecommendationOutput, bool]:
     """Returns (output, was_cached)."""
-    summary = build_summary(db)
+    summary = build_summary(db, user_id)
     version = data_version(summary)
 
     if not force_refresh:
         cached = (
             db.query(Recommendation)
-            .filter(Recommendation.data_version == version)
+            .filter(Recommendation.data_version == version, Recommendation.user_id == user_id)
             .order_by(Recommendation.generated_at.desc())
             .first()
         )
@@ -46,6 +46,7 @@ def get_recommendations(db: Session, force_refresh: bool = False) -> tuple[Recom
 
     if output is not FALLBACK_OUTPUT:
         record = Recommendation(
+            user_id=user_id,
             data_version=version,
             input_summary=summary,
             output=output.model_dump(),

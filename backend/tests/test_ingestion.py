@@ -2,6 +2,8 @@ from app.ingestion.csv_parser import ColumnMapping, build_preview, normalize_row
 from app.ingestion.dedup import dedupe
 from app.ingestion.service import commit_rows
 
+TEST_USER_ID = "11111111-1111-1111-1111-111111111111"
+
 
 def test_suggest_mapping_recognizes_signed_amount_headers():
     mapping = suggest_mapping(["Date", "Description", "Amount"])
@@ -78,6 +80,7 @@ def test_dedup_drops_rows_already_in_db(db_session):
 
     db_session.add(
         Transaction(
+            user_id=TEST_USER_ID,
             date=date_cls(2026, 8, 1),
             description="Coffee",
             raw_description="Coffee",
@@ -93,7 +96,7 @@ def test_dedup_drops_rows_already_in_db(db_session):
     mapping = ColumnMapping(date="Date", description="Description", amount="Amount")
     rows, _ = normalize_rows(csv_bytes, mapping)
 
-    kept, duplicate_count = dedupe(db_session, rows)
+    kept, duplicate_count = dedupe(db_session, rows, TEST_USER_ID)
 
     assert duplicate_count == 1
     assert len(kept) == 1
@@ -107,7 +110,7 @@ def test_dedup_drops_duplicates_within_same_batch(db_session):
     mapping = ColumnMapping(date="Date", description="Description", amount="Amount")
     rows, _ = normalize_rows(csv_bytes, mapping)
 
-    kept, duplicate_count = dedupe(db_session, rows)
+    kept, duplicate_count = dedupe(db_session, rows, TEST_USER_ID)
 
     assert len(kept) == 1
     assert duplicate_count == 1
@@ -131,7 +134,7 @@ def test_commit_rows_applies_category_override_by_source_row_index(db_session):
     mapping = ColumnMapping(date="Date", description="Description", amount="Amount")
 
     inserted, duplicates, unparseable = commit_rows(
-        db_session, csv_bytes, mapping, category_overrides={0: "OverrideTestTravel"}
+        db_session, csv_bytes, mapping, TEST_USER_ID, category_overrides={0: "OverrideTestTravel"}
     )
 
     assert inserted == 2

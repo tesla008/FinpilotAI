@@ -6,7 +6,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.core.seed_categories import ensure_system_categories
-from app.routers import ai, analysis, budgets, categories, forecasts, goals, markets, reports, transactions
+from app.routers import (
+    ai,
+    analysis,
+    auth,
+    budgets,
+    categories,
+    forecasts,
+    goals,
+    markets,
+    onboarding,
+    reports,
+    transactions,
+)
 
 settings = get_settings()
 
@@ -23,14 +35,18 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="FinPilot AI", lifespan=lifespan)
 
-# Single-tenant local demo, no auth — credentials aren't needed cross-origin.
+# allow_credentials is required for the httpOnly session cookies to flow
+# cross-origin (frontend on :5173, backend on :8000); it's incompatible
+# with a wildcard allow_origins, so cors_origins must stay an explicit list.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(categories.router)
 app.include_router(transactions.router)
 app.include_router(budgets.router)
@@ -40,6 +56,7 @@ app.include_router(ai.router)
 app.include_router(analysis.router)
 app.include_router(forecasts.router)
 app.include_router(markets.router)
+app.include_router(onboarding.router)
 
 
 @app.get("/health")

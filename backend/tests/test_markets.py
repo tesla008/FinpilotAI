@@ -98,16 +98,21 @@ def test_get_index_raises_when_no_cache_and_provider_fails(monkeypatch):
         get_index("^NSEI", "Nifty 50")
 
 
-def test_indices_router_omits_failed_index_instead_of_erroring(client, monkeypatch):
+def test_indices_router_omits_failed_index_instead_of_erroring(auth_client, monkeypatch):
     def one_fails_one_succeeds(symbol, name):
         if symbol == "^NSEI":
             raise RuntimeError("provider down for this one")
         return SAMPLE.model_copy(update={"symbol": symbol, "name": name})
 
     monkeypatch.setattr(service, "_fetch_from_provider", one_fails_one_succeeds)
-    response = client.get("/markets/indices")
+    response = auth_client.get("/markets/indices")
 
     assert response.status_code == 200
     symbols = [i["symbol"] for i in response.json()["indices"]]
     assert "^NSEI" not in symbols
     assert "^BSESN" in symbols
+
+
+def test_indices_router_requires_auth(client):
+    response = client.get("/markets/indices")
+    assert response.status_code == 401

@@ -8,7 +8,7 @@ import { TrendChart } from '../components/TrendChart'
 import { CategoryBreakdown } from '../components/CategoryBreakdown'
 import { MarketIndicesSection } from '../components/MarketIndicesSection'
 import { AIPanel, fetchRecommendations } from '../components/AIPanel'
-import type { BudgetAdherence, Forecast, Recommendations } from '../lib/types'
+import type { BudgetAdherence, Forecast, LiteracyLevel, Recommendations } from '../lib/types'
 
 export function DashboardPage() {
   const currency = useCurrency()
@@ -19,12 +19,14 @@ export function DashboardPage() {
   const [adherence, setAdherence] = useState<BudgetAdherence[] | null>(null)
   const [recommendations, setRecommendations] = useState<Recommendations | null>(null)
   const [aiLoading, setAiLoading] = useState(true)
+  const [literacyLevel, setLiteracyLevel] = useState<LiteracyLevel | null>(null)
 
   useEffect(() => {
     api.get('/analysis/balance').then((res) => setBalance(res.data.balance_minor))
     api.get('/analysis/monthly-totals').then((res) => setMonthlyTotals(res.data))
     api.get('/forecasts/latest').then((res) => setForecast(res.data))
     api.get('/analysis/budget-adherence').then((res) => setAdherence(res.data))
+    api.get('/api/onboarding/profile').then((res) => setLiteracyLevel(res.data.literacy_level))
     fetchRecommendations()
       .then(setRecommendations)
       .finally(() => setAiLoading(false))
@@ -53,55 +55,79 @@ export function DashboardPage() {
     }
   }
 
+  const statTiles = (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <StatTile label="All-time balance" value={balance} formatter={(n) => formatMoney(n, currency)} tone="accent" />
+      <StatTile label="This month's spend" value={thisMonthSpend} formatter={(n) => formatMoney(n, currency)} />
+      <StatTile
+        label="Next month forecast"
+        value={forecast?.predicted_total_minor ?? null}
+        formatter={(n) => formatMoney(n, currency)}
+        delta={
+          forecast && thisMonthSpend
+            ? { pct: ((forecast.predicted_total_minor - thisMonthSpend) / thisMonthSpend) * 100, label: 'vs this month' }
+            : null
+        }
+      />
+    </div>
+  )
+
+  const overBudgetBanner = overBudget.length > 0 && (
+    <motion.div
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-xl border border-[var(--red)]/20 bg-[var(--red-soft)] px-4 py-3 text-sm text-[var(--red)]"
+    >
+      Over budget in {overBudget.map((b) => b.category).join(', ')} this month.
+    </motion.div>
+  )
+
+  const chartsRow = (
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="card-lifted p-6 lg:col-span-2">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-base font-semibold">Spending trend</h2>
+          {forecast?.is_low_confidence && (
+            <span className="rounded-full bg-[var(--amber-soft)] px-2 py-0.5 text-[10px] font-semibold uppercase text-[var(--amber)]">
+              Low-confidence forecast
+            </span>
+          )}
+        </div>
+        <TrendChart monthlyTotals={monthlyTotals} forecast={forecast} currency={currency} />
+      </div>
+
+      <div className="card-lifted p-6">
+        <h2 className="font-display mb-4 text-base font-semibold">By category</h2>
+        <CategoryBreakdown data={categoryBreakdown} currency={currency} />
+      </div>
+    </div>
+  )
+
+  const marketsSection = <MarketIndicesSection />
+  const aiPanel = <AIPanel data={recommendations} isLoading={aiLoading} onRefresh={handleAiRefresh} />
+
+  // Personalization: a beginner sees plain-language advice before the raw
+  // charts (less overwhelming, advice-first); everyone else sees the data
+  // first, advice last. Same widgets, different order — no new surfaces.
+  const isBeginner = literacyLevel === 'beginner'
+
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatTile label="All-time balance" value={balance} formatter={(n) => formatMoney(n, currency)} tone="accent" />
-        <StatTile label="This month's spend" value={thisMonthSpend} formatter={(n) => formatMoney(n, currency)} />
-        <StatTile
-          label="Next month forecast"
-          value={forecast?.predicted_total_minor ?? null}
-          formatter={(n) => formatMoney(n, currency)}
-          delta={
-            forecast && thisMonthSpend
-              ? { pct: ((forecast.predicted_total_minor - thisMonthSpend) / thisMonthSpend) * 100, label: 'vs this month' }
-              : null
-          }
-        />
-      </div>
-
-      {overBudget.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-[var(--red)]/20 bg-[var(--red-soft)] px-4 py-3 text-sm text-[var(--red)]"
-        >
-          Over budget in {overBudget.map((b) => b.category).join(', ')} this month.
-        </motion.div>
+      {statTiles}
+      {overBudgetBanner}
+      {isBeginner ? (
+        <>
+          {aiPanel}
+          {chartsRow}
+          {marketsSection}
+        </>
+      ) : (
+        <>
+          {chartsRow}
+          {marketsSection}
+          {aiPanel}
+        </>
       )}
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="card-lifted p-6 lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-base font-semibold">Spending trend</h2>
-            {forecast?.is_low_confidence && (
-              <span className="rounded-full bg-[var(--amber-soft)] px-2 py-0.5 text-[10px] font-semibold uppercase text-[var(--amber)]">
-                Low-confidence forecast
-              </span>
-            )}
-          </div>
-          <TrendChart monthlyTotals={monthlyTotals} forecast={forecast} currency={currency} />
-        </div>
-
-        <div className="card-lifted p-6">
-          <h2 className="font-display mb-4 text-base font-semibold">By category</h2>
-          <CategoryBreakdown data={categoryBreakdown} currency={currency} />
-        </div>
-      </div>
-
-      <MarketIndicesSection />
-
-      <AIPanel data={recommendations} isLoading={aiLoading} onRefresh={handleAiRefresh} />
     </div>
   )
 }

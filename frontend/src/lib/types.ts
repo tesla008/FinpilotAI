@@ -1,3 +1,58 @@
+export type OnboardingStatus = 'not_started' | 'in_progress' | 'completed' | 'skipped'
+
+export interface AuthUser {
+  id: string
+  email: string
+  name: string
+  picture_url: string | null
+  created_at: string
+  onboarding_status: OnboardingStatus
+}
+
+// --- Onboarding quiz ---
+
+export interface QuestionOption {
+  value: string
+  label: string
+}
+
+export interface OnboardingQuestion {
+  id: string
+  prompt: string
+  help_text: string | null
+  type: 'single_choice' | 'multi_choice' | 'knowledge_check'
+  max_selections: number | null
+  options: QuestionOption[]
+  skippable: boolean
+}
+
+export type RiskBand = 'conservative' | 'moderate' | 'aggressive'
+export type LiteracyLevel = 'beginner' | 'intermediate' | 'advanced'
+export type LifeStage = 'student' | 'early_career' | 'family' | 'pre_retirement'
+export type IncomeStability = 'stable' | 'variable' | 'irregular'
+export type InvestmentExperience = 'none' | 'some' | 'experienced'
+
+export interface QuizGoal {
+  type: string
+  target_amount: number | null
+  target_date: string | null
+  priority: number
+}
+
+export interface OnboardingProfile {
+  status: OnboardingStatus
+  current_step: number
+  total_steps: number
+  answers: Record<string, string | string[] | null>
+  risk_band: RiskBand | null
+  literacy_level: LiteracyLevel | null
+  life_stage: LifeStage | null
+  income_stability: IncomeStability | null
+  investment_experience: InvestmentExperience | null
+  goals: QuizGoal[]
+  completed_at: string | null
+}
+
 export interface Category {
   id: string
   name: string

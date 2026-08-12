@@ -54,3 +54,28 @@ def _override_get_db():
 def client():
     with TestClient(app) as c:  # triggers the startup event (system category seeding)
         yield c
+
+
+@pytest.fixture()
+def test_user(db_session):
+    from app.models.user import User
+
+    # Unique per invocation — the schema is created once per test session
+    # (not rolled back between tests), so a fixed google_sub would collide
+    # the moment more than one test in a file uses this fixture.
+    unique = uuid.uuid4().hex[:8]
+    user = User(google_sub=f"test-google-sub-{unique}", email=f"test-{unique}@example.com", name="Test User")
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture()
+def auth_client(client, test_user):
+    """A TestClient carrying a valid session cookie for `test_user` — for
+    exercising routes that require `get_current_user`."""
+    from app.core.security import create_access_token
+
+    client.cookies.set("fp_access", create_access_token(test_user))
+    return client

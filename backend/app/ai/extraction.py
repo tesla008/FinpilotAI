@@ -7,7 +7,7 @@ from app.ai.client import ClaudeUnavailableError, call_claude_vision
 from app.ai.vision_prompt import EXTRACTION_USER_MESSAGE, build_extraction_system_prompt
 from app.ai.vision_schema import TransactionExtraction
 from app.ingestion.image_processing import UnsupportedImageError, process_screenshot
-from app.models.category import Category
+from app.models.category import Category, owned_or_system
 
 logger = logging.getLogger("finpilot.extraction")
 
@@ -19,13 +19,15 @@ class ExtractionFailedError(Exception):
     response or a stack trace."""
 
 
-def extract_transaction(db: Session, raw_image: bytes) -> TransactionExtraction:
+def extract_transaction(db: Session, raw_image: bytes, user_id: str) -> TransactionExtraction:
     try:
         jpeg_bytes, media_type = process_screenshot(raw_image)
     except UnsupportedImageError as exc:
         raise ExtractionFailedError(str(exc)) from exc
 
-    category_names = [c.name for c in db.query(Category).order_by(Category.name).all()]
+    category_names = [
+        c.name for c in db.query(Category).filter(owned_or_system(user_id)).order_by(Category.name).all()
+    ]
     system_prompt = build_extraction_system_prompt(category_names)
 
     try:

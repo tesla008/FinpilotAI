@@ -14,17 +14,27 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:5173"]
 
-    # Single-tenant local demo — no users table, so this is the only currency
-    # setting in the system (still a setting, not hardcoded, per the brief).
     default_currency: str = "INR"
 
-    # The only secret left after auth removal.
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-6"
 
     max_csv_upload_mb: int = 5
     max_screenshot_upload_mb: int = 8
     screenshot_extract_rate_limit_per_minute: int = 6
+
+    # Google Identity Services — verifies ID tokens from the frontend against
+    # this client id; never trust the aud claim without checking it.
+    google_client_id: str = ""
+    # Not used by the current flow: verifying a client-obtained ID token needs
+    # no secret (no code exchange happens). Kept for parity with the Google
+    # Cloud Console credential pair and in case a code-exchange flow is added later.
+    google_client_secret: str = ""
+    # Signs/verifies our own access + refresh JWTs.
+    jwt_secret: str = ""
+    access_token_ttl_minutes: int = 15
+    refresh_token_ttl_days: int = 30
+    frontend_url: str = "http://localhost:5173"
 
 
 @lru_cache

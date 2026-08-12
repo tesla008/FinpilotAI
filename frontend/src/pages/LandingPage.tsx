@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { HeroBrand } from '../components/HeroBrand'
 import { BrandMark } from '../components/BrandMark'
 import { Reveal } from '../components/Reveal'
+import { useAuth } from '../context/AuthContext'
 import { useCurrency } from '../lib/currency'
 import { formatMoney } from '../lib/format'
 import { categoryPillColors } from '../lib/categoryColors'
@@ -27,10 +28,11 @@ const NAV_LINKS = ['Product', 'Security', 'Pricing']
 
 export function LandingPage() {
   const currency = useCurrency()
+  const { user } = useAuth()
 
   return (
     <div className="font-body text-body">
-      {/* NAV — logo · links · CTA, left to right */}
+      {/* NAV — logo · links · sign in · CTA, left to right */}
       <div className="mx-auto flex max-w-[1320px] items-center justify-between px-6 py-5 sm:px-12 sm:py-7">
         <Link to="/">
           <BrandMark size={20} />
@@ -40,12 +42,19 @@ export function LandingPage() {
             <span key={label}>{label}</span>
           ))}
         </div>
-        <Link
-          to="/import"
-          className="rounded-sm bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 sm:px-5 sm:py-2.5"
-        >
-          Get started
-        </Link>
+        <div className="flex items-center gap-4 sm:gap-5">
+          {!user && (
+            <Link to="/sign-in" className="text-sm font-semibold text-secondary hover:text-heading">
+              Sign in
+            </Link>
+          )}
+          <Link
+            to={user ? '/dashboard' : '/import'}
+            className="rounded-sm bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 sm:px-5 sm:py-2.5"
+          >
+            {user ? 'Dashboard' : 'Get started'}
+          </Link>
+        </div>
       </div>
 
       {/* HERO */}
@@ -62,7 +71,7 @@ export function LandingPage() {
             FinPilot analyzes your spending, forecasts what's ahead, and tells you exactly what to do about it.
           </p>
           <Link
-            to="/import"
+            to={user ? '/dashboard' : '/sign-in'}
             className="mt-9 inline-block rounded-xl bg-primary px-8 py-4 text-base font-semibold text-white shadow-[0_12px_28px_-10px_rgba(67,56,202,0.5)] transition hover:brightness-110"
           >
             Upload a statement
@@ -355,7 +364,7 @@ export function LandingPage() {
               Upload a statement or scan a screenshot — FinPilot does the rest.
             </p>
             <Link
-              to="/import"
+              to={user ? '/dashboard' : '/sign-in'}
               className="mt-8 inline-block rounded-xl bg-primary px-8 py-4 text-base font-semibold text-white shadow-[0_12px_28px_-10px_rgba(67,56,202,0.5)] transition hover:brightness-110"
             >
               Upload a statement

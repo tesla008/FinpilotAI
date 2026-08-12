@@ -11,11 +11,13 @@ from app.categorization.service import categorize, categorize_with_confidence
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.rate_limit import enforce_ip_rate_limit
+from app.core.security import get_current_user
 from app.ingestion import staging
 from app.ingestion.csv_parser import ColumnMapping, build_preview
 from app.ingestion.service import commit_rows
 from app.models.category import Category
 from app.models.transaction import Transaction
+from app.models.user import User
 from app.schemas.transaction import (
     CategoryGuess,
     TransactionCreate,
@@ -45,8 +47,9 @@ def list_transactions(
     amount_max_minor: int | None = None,
     search: str | None = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    query = db.query(Transaction)
+    query = db.query(Transaction).filter(Transaction.user_id == current_user.id)
     if date_from:
         query = query.filter(Transaction.date >= date_from)
     if date_to:
@@ -66,16 +69,19 @@ def list_transactions(
 
 
 @router.post("", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
-def create_transaction(payload: TransactionCreate, db: Session = Depends(get_db)):
+def create_transaction(
+    payload: TransactionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+):
     category_id = payload.category_id
     category_confirmed = category_id is not None
 
     if category_id is None:
-        guessed_id, confident = categorize(db, payload.description)
+        guessed_id, confident = categorize(db, payload.description, current_user.id)
         category_id = guessed_id
         category_confirmed = False  # a guess, even a confident one, isn't user-confirmed
 
     txn = Transaction(
+        user_id=current_user.id,
         date=payload.date,
         description=payload.description,
         raw_description=payload.description,
@@ -89,14 +95,23 @@ def create_transaction(payload: TransactionCreate, db: Session = Depends(get_db)
     db.refresh(txn)
 
     if category_confirmed:
-        classifier.train(db)
+        classifier.train(db, current_user.id)
 
     return _to_response(txn)
 
 
 @router.patch("/{transaction_id}", response_model=TransactionResponse)
-def update_transaction(transaction_id: str, payload: TransactionUpdate, db: Session = Depends(get_db)):
-    txn = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+def update_transaction(
+    transaction_id: str,
+    payload: TransactionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    txn = (
+        db.query(Transaction)
+        .filter(Transaction.id == transaction_id, Transaction.user_id == current_user.id)
+        .first()
+    )
     if not txn:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Transaction not found.")
 
@@ -114,14 +129,20 @@ def update_transaction(transaction_id: str, payload: TransactionUpdate, db: Sess
     db.refresh(txn)
 
     if category_changed:
-        classifier.train(db)
+        classifier.train(db, current_user.id)
 
     return _to_response(txn)
 
 
 @router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_transaction(transaction_id: str, db: Session = Depends(get_db)):
-    txn = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+def delete_transaction(
+    transaction_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    txn = (
+        db.query(Transaction)
+        .filter(Transaction.id == transaction_id, Transaction.user_id == current_user.id)
+        .first()
+    )
     if not txn:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Transaction not found.")
     db.delete(txn)
@@ -129,7 +150,9 @@ def delete_transaction(transaction_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/upload/preview", response_model=UploadPreviewResponse)
-async def upload_preview(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_preview(
+    file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+):
     raw = await file.read()
     if len(raw) > settings.max_csv_upload_mb * 1024 * 1024:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"File exceeds {settings.max_csv_upload_mb}MB limit.")
@@ -147,7 +170,9 @@ async def upload_preview(file: UploadFile = File(...), db: Session = Depends(get
     guesses: list[CategoryGuess] = []
     if desc_col:
         for row in preview.sample_rows:
-            category_name, confidence = categorize_with_confidence(db, str(row.get(desc_col, "")))
+            category_name, confidence = categorize_with_confidence(
+                db, str(row.get(desc_col, "")), current_user.id
+            )
             guesses.append(CategoryGuess(category=category_name, confidence=confidence))
     else:
         guesses = [CategoryGuess(category=None, confidence=None) for _ in preview.sample_rows]
@@ -164,7 +189,9 @@ async def upload_preview(file: UploadFile = File(...), db: Session = Depends(get
 
 
 @router.post("/upload/commit", response_model=UploadCommitResponse)
-def upload_commit(payload: UploadCommitRequest, db: Session = Depends(get_db)):
+def upload_commit(
+    payload: UploadCommitRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+):
     raw = staging.retrieve(payload.upload_token)
     if raw is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Upload session expired — please re-upload the file.")
@@ -174,7 +201,9 @@ def upload_commit(payload: UploadCommitRequest, db: Session = Depends(get_db)):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Column mapping is incomplete.")
 
     try:
-        inserted, duplicates, unparseable = commit_rows(db, raw, mapping, payload.category_overrides)
+        inserted, duplicates, unparseable = commit_rows(
+            db, raw, mapping, current_user.id, payload.category_overrides
+        )
     except Exception as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Could not import CSV: {exc}") from exc
 
@@ -182,7 +211,12 @@ def upload_commit(payload: UploadCommitRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/extract", response_model=TransactionExtraction)
-async def extract_from_screenshot(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def extract_from_screenshot(
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Reads a transaction out of a screenshot via Claude vision. Extract and
     save are deliberately two separate calls — this endpoint writes nothing
     to the database and the image is never persisted, only held in memory
@@ -194,6 +228,6 @@ async def extract_from_screenshot(request: Request, file: UploadFile = File(...)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Image exceeds {settings.max_screenshot_upload_mb}MB limit.")
 
     try:
-        return extract_transaction(db, raw)
+        return extract_transaction(db, raw, current_user.id)
     except ExtractionFailedError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc

@@ -8,17 +8,18 @@ from app.models.forecast import Forecast
 from app.models.transaction import Transaction
 
 
-def load_records(db: Session) -> list[TxnRecord]:
+def load_records(db: Session, user_id: str) -> list[TxnRecord]:
     rows = (
         db.query(Transaction.date, Transaction.amount_minor, Category.name)
         .outerjoin(Category, Transaction.category_id == Category.id)
+        .filter(Transaction.user_id == user_id)
         .all()
     )
     return [TxnRecord(date=d, amount_minor=amt, category=cat or "Other") for d, amt, cat in rows]
 
 
-def generate_forecast(db: Session) -> Forecast:
-    records = load_records(db)
+def generate_forecast(db: Session, user_id: str) -> Forecast:
+    records = load_records(db, user_id)
 
     total_series = total_monthly_series(records)
     total_piece = forecast_series(total_series)
@@ -41,6 +42,7 @@ def generate_forecast(db: Session) -> Forecast:
     horizon_month_str = next_month_str(total_series[-1][0]) if total_series else next_month_str("2000-01")
 
     forecast = Forecast(
+        user_id=user_id,
         horizon_month=month_str_to_date(horizon_month_str),
         predicted_total_minor=total_piece.predicted_minor,
         confidence_low_minor=total_piece.low_minor,

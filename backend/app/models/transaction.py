@@ -11,10 +11,12 @@ class Transaction(Base):
     __tablename__ = "transactions"
     __table_args__ = (
         # Backs the dedup check (same date + amount + description) done on CSV re-upload.
-        Index("ix_transactions_dedup", "date", "amount_minor", "raw_description"),
+        # user_id leads so dedup stays scoped per-user rather than global.
+        Index("ix_transactions_dedup", "user_id", "date", "amount_minor", "raw_description"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     description: Mapped[str] = mapped_column(String(255), nullable=False)
     raw_description: Mapped[str] = mapped_column(String(255), nullable=False)
