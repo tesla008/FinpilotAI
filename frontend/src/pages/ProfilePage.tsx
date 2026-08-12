@@ -11,6 +11,7 @@ interface Row {
   value?: string
   onClick?: () => void
   soon?: boolean
+  toggle?: { checked: boolean; onChange: () => void; busy?: boolean }
 }
 
 interface Group {
@@ -19,9 +20,10 @@ interface Group {
 }
 
 export function ProfilePage() {
-  const { user, signOut } = useAuth()
+  const { user, refreshUser, signOut } = useAuth()
   const navigate = useNavigate()
   const [deleting, setDeleting] = useState(false)
+  const [togglingDemo, setTogglingDemo] = useState(false)
 
   if (!user) return null
 
@@ -35,13 +37,32 @@ export function ProfilePage() {
     navigate('/onboarding')
   }
 
+  async function handleToggleTestMode() {
+    if (!user) return
+    setTogglingDemo(true)
+    try {
+      await api.post(user.test_mode_enabled ? '/api/demo/disable' : '/api/demo/enable')
+      await refreshUser()
+    } finally {
+      setTogglingDemo(false)
+    }
+  }
+
+  const modeRow: Row = user.is_demo
+    ? { label: 'Mode', value: 'Demo account' }
+    : {
+        label: 'Test mode',
+        value: user.test_mode_enabled ? 'Showing sample data' : undefined,
+        toggle: { checked: user.test_mode_enabled, onChange: handleToggleTestMode, busy: togglingDemo },
+      }
+
   const groups: Group[] = [
     {
       title: 'Account',
       rows: [
         { label: 'Personal details', soon: true },
         { label: 'Connected Google account', value: user.email },
-        { label: 'Mode', value: 'Personal' },
+        modeRow,
         {
           label: 'Retake quiz',
           value: user.onboarding_status === 'skipped' ? 'Skipped' : undefined,
@@ -135,7 +156,7 @@ function ProfileGroup({ title, rows }: Group) {
   )
 }
 
-function ProfileRow({ label, value, onClick, soon }: Row) {
+function ProfileRow({ label, value, onClick, soon, toggle }: Row) {
   const interactive = !!onClick
   const destructive = label === 'Delete my account'
 
@@ -155,7 +176,27 @@ function ProfileRow({ label, value, onClick, soon }: Row) {
         {soon && (
           <span className="rounded-full bg-hairline px-2 py-0.5 text-[11px] font-medium text-muted">Soon</span>
         )}
-        {interactive && !destructive && <ChevronIcon />}
+        {toggle && (
+          <button
+            role="switch"
+            aria-checked={toggle.checked}
+            disabled={toggle.busy}
+            onClick={(e) => {
+              e.stopPropagation()
+              toggle.onChange()
+            }}
+            className={`relative h-6 w-11 flex-none rounded-full transition-colors disabled:opacity-60 ${
+              toggle.checked ? 'bg-warning' : 'bg-hairline'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                toggle.checked ? 'translate-x-[22px]' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
+        )}
+        {interactive && !destructive && !toggle && <ChevronIcon />}
       </span>
     </div>
   )

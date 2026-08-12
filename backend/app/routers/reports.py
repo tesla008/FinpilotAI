@@ -3,7 +3,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_effective_user
 from app.forecasting.generate import load_records
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -22,7 +22,7 @@ def _latest_month(db: Session, user_id: str) -> str | None:
 
 @router.get("/monthly-summary")
 def monthly_summary(
-    month: str | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+    month: str | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_effective_user)
 ):
     month = month or _latest_month(db, current_user.id)
     if not month:
@@ -32,7 +32,7 @@ def monthly_summary(
 
 @router.get("/monthly-summary/export.pdf")
 def export_monthly_summary_pdf(
-    month: str | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+    month: str | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_effective_user)
 ):
     month = month or _latest_month(db, current_user.id)
     summary = (
@@ -49,7 +49,7 @@ def export_monthly_summary_pdf(
 
 
 @router.get("/transactions/export.csv")
-def export_transactions_csv(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def export_transactions_csv(db: Session = Depends(get_db), current_user: User = Depends(get_effective_user)):
     transactions = (
         db.query(Transaction).filter(Transaction.user_id == current_user.id).order_by(Transaction.date).all()
     )

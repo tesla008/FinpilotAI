@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     max_screenshot_upload_mb: int = 8
     screenshot_extract_rate_limit_per_minute: int = 6
     fino_rate_limit_per_minute: int = 15
+    fino_demo_rate_limit_per_minute: int = 6
+    ai_demo_rate_limit_per_minute: int = 4
 
     # Google Identity Services — verifies ID tokens from the frontend against
     # this client id; never trust the aud claim without checking it.

@@ -145,6 +145,32 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     return user
 
 
+def get_effective_user(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> User:
+    """The user whose DATA should be read/written for this request.
+
+    Identity endpoints (auth, profile, onboarding) always use
+    get_current_user directly — this is only for routers that touch a
+    user's financial data (transactions, budgets, goals, forecasts,
+    categories, reports, analysis, AI, Fino). When the real, signed-in
+    user has test mode toggled on, every one of those routes transparently
+    operates on their separate, pre-seeded shadow demo account instead —
+    same query code, different namespace, so a demo session can never
+    read, write, or delete a byte of the real account's data.
+    """
+    if not current_user.test_mode_enabled or current_user.is_demo:
+        return current_user
+
+    if current_user.demo_shadow_user_id:
+        shadow = db.query(User).filter(User.id == current_user.demo_shadow_user_id).first()
+        if shadow is not None:
+            return shadow
+
+    # test_mode_enabled with no (or a dangling) shadow user shouldn't
+    # happen — /api/demo/enable always creates one first — but fail safe
+    # to the real account rather than 500 or silently invent one here.
+    return current_user
+
+
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
     # Secure cookies are never sent back over plain HTTP — that's correct in
     # production (HTTPS everywhere) but would silently break every local

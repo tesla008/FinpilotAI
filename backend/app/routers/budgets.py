@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_effective_user
 from app.models.budget import Budget
 from app.models.category import Category, owned_or_system
 from app.models.user import User
@@ -18,14 +18,14 @@ def _to_response(b: Budget) -> BudgetResponse:
 
 
 @router.get("", response_model=list[BudgetResponse])
-def list_budgets(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def list_budgets(db: Session = Depends(get_db), current_user: User = Depends(get_effective_user)):
     budgets = db.query(Budget).filter(Budget.user_id == current_user.id).all()
     return [_to_response(b) for b in budgets]
 
 
 @router.put("", response_model=BudgetResponse)
 def upsert_budget(
-    payload: BudgetUpsert, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+    payload: BudgetUpsert, db: Session = Depends(get_db), current_user: User = Depends(get_effective_user)
 ):
     category = (
         db.query(Category)
@@ -56,7 +56,7 @@ def upsert_budget(
 
 
 @router.delete("/{budget_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_budget(budget_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def delete_budget(budget_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_effective_user)):
     budget = db.query(Budget).filter(Budget.id == budget_id, Budget.user_id == current_user.id).first()
     if not budget:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Budget not found.")

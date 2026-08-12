@@ -16,6 +16,8 @@ export interface AuthUser {
   picture_url: string | null
   created_at: string
   onboarding_status: OnboardingStatus
+  is_demo: boolean
+  test_mode_enabled: boolean
 }
 
 // --- Onboarding quiz ---

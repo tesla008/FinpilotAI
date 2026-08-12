@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { HeroBrand } from '../components/HeroBrand'
 import { BrandMark } from '../components/BrandMark'
 import { Reveal } from '../components/Reveal'
@@ -6,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCurrency } from '../lib/currency'
 import { formatMoney } from '../lib/format'
 import { categoryPillColors } from '../lib/categoryColors'
+import { api } from '../lib/api'
 import {
   featureBands,
   heroAiTip,
@@ -28,7 +30,20 @@ const NAV_LINKS = ['Product', 'Security', 'Pricing']
 
 export function LandingPage() {
   const currency = useCurrency()
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
+  const navigate = useNavigate()
+  const [startingDemo, setStartingDemo] = useState(false)
+
+  async function handleTryDemo() {
+    setStartingDemo(true)
+    try {
+      await api.post('/api/demo/try')
+      await refreshUser()
+      navigate('/dashboard')
+    } finally {
+      setStartingDemo(false)
+    }
+  }
 
   return (
     <div className="font-body text-body">
@@ -51,9 +66,18 @@ export function LandingPage() {
         </div>
         <div className="flex items-center gap-4 sm:gap-5">
           {!user && (
-            <Link to="/sign-in" className="text-sm font-semibold text-secondary hover:text-heading">
-              Sign in
-            </Link>
+            <>
+              <button
+                onClick={handleTryDemo}
+                disabled={startingDemo}
+                className="text-sm font-semibold text-secondary hover:text-heading disabled:opacity-60"
+              >
+                {startingDemo ? 'Starting…' : 'Try demo'}
+              </button>
+              <Link to="/sign-in" className="text-sm font-semibold text-secondary hover:text-heading">
+                Sign in
+              </Link>
+            </>
           )}
           <Link
             to={user ? '/dashboard' : '/import'}

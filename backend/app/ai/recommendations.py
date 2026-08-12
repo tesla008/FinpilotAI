@@ -27,8 +27,16 @@ FALLBACK_OUTPUT = RecommendationOutput(
 )
 
 
-def get_recommendations(db: Session, user_id: str, force_refresh: bool = False) -> tuple[RecommendationOutput, bool]:
-    """Returns (output, was_cached)."""
+def get_recommendations(
+    db: Session, user_id: str, force_refresh: bool = False, is_demo: bool = False
+) -> tuple[RecommendationOutput, bool]:
+    """Returns (output, was_cached).
+
+    In demo mode, a live-call failure falls back to the most recent cached
+    recommendation for this user (any data_version) rather than the generic
+    FALLBACK_OUTPUT — a demo showing a real, specific-looking recommendation
+    it already generated once beats a "temporarily unavailable" message if
+    the network blips mid-presentation."""
     summary = build_summary(db, user_id)
     version = data_version(summary)
 
@@ -43,6 +51,16 @@ def get_recommendations(db: Session, user_id: str, force_refresh: bool = False) 
             return RecommendationOutput.model_validate(cached.output), True
 
     output = _call_with_retry(summary)
+
+    if output is FALLBACK_OUTPUT and is_demo:
+        any_cached = (
+            db.query(Recommendation)
+            .filter(Recommendation.user_id == user_id)
+            .order_by(Recommendation.generated_at.desc())
+            .first()
+        )
+        if any_cached:
+            return RecommendationOutput.model_validate(any_cached.output), True
 
     if output is not FALLBACK_OUTPUT:
         record = Recommendation(

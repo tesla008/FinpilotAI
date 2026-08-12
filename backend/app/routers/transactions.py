@@ -11,7 +11,7 @@ from app.categorization.service import categorize, categorize_with_confidence
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.rate_limit import enforce_ip_rate_limit
-from app.core.security import get_current_user
+from app.core.security import get_effective_user
 from app.ingestion import staging
 from app.ingestion.csv_parser import ColumnMapping, build_preview
 from app.ingestion.service import commit_rows
@@ -47,7 +47,7 @@ def list_transactions(
     amount_max_minor: int | None = None,
     search: str | None = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_effective_user),
 ):
     query = db.query(Transaction).filter(Transaction.user_id == current_user.id)
     if date_from:
@@ -70,7 +70,7 @@ def list_transactions(
 
 @router.post("", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
 def create_transaction(
-    payload: TransactionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+    payload: TransactionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_effective_user)
 ):
     category_id = payload.category_id
     category_confirmed = category_id is not None
@@ -105,7 +105,7 @@ def update_transaction(
     transaction_id: str,
     payload: TransactionUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_effective_user),
 ):
     txn = (
         db.query(Transaction)
@@ -136,7 +136,7 @@ def update_transaction(
 
 @router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_transaction(
-    transaction_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+    transaction_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_effective_user)
 ):
     txn = (
         db.query(Transaction)
@@ -151,7 +151,7 @@ def delete_transaction(
 
 @router.post("/upload/preview", response_model=UploadPreviewResponse)
 async def upload_preview(
-    file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+    file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_effective_user)
 ):
     raw = await file.read()
     if len(raw) > settings.max_csv_upload_mb * 1024 * 1024:
@@ -190,7 +190,7 @@ async def upload_preview(
 
 @router.post("/upload/commit", response_model=UploadCommitResponse)
 def upload_commit(
-    payload: UploadCommitRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+    payload: UploadCommitRequest, db: Session = Depends(get_db), current_user: User = Depends(get_effective_user)
 ):
     raw = staging.retrieve(payload.upload_token)
     if raw is None:
@@ -215,7 +215,7 @@ async def extract_from_screenshot(
     request: Request,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_effective_user),
 ):
     """Reads a transaction out of a screenshot via Claude vision. Extract and
     save are deliberately two separate calls — this endpoint writes nothing

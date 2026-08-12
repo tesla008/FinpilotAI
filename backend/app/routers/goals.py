@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.analysis.goals import progress_pct, project_completion_date
 from app.analysis.savings import monthly_savings_rate
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_effective_user
 from app.forecasting.generate import load_records
 from app.models.goal import Goal
 from app.models.user import User
@@ -39,14 +39,14 @@ def _to_response(goal: Goal, avg_monthly_net: float) -> GoalResponse:
 
 
 @router.get("", response_model=list[GoalResponse])
-def list_goals(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def list_goals(db: Session = Depends(get_db), current_user: User = Depends(get_effective_user)):
     avg_net = _avg_monthly_net(db, current_user.id)
     goals = db.query(Goal).filter(Goal.user_id == current_user.id).order_by(Goal.target_date).all()
     return [_to_response(g, avg_net) for g in goals]
 
 
 @router.post("", response_model=GoalResponse, status_code=status.HTTP_201_CREATED)
-def create_goal(payload: GoalCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def create_goal(payload: GoalCreate, db: Session = Depends(get_db), current_user: User = Depends(get_effective_user)):
     goal = Goal(user_id=current_user.id, **payload.model_dump())
     db.add(goal)
     db.commit()
@@ -59,7 +59,7 @@ def update_goal(
     goal_id: str,
     payload: GoalUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_effective_user),
 ):
     goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == current_user.id).first()
     if not goal:
@@ -72,7 +72,7 @@ def update_goal(
 
 
 @router.delete("/{goal_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_goal(goal_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def delete_goal(goal_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_effective_user)):
     goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == current_user.id).first()
     if not goal:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Goal not found.")

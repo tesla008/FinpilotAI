@@ -13,7 +13,7 @@ from app.ai.fino_prompt import build_fino_system_prompt
 from app.core.config import get_settings
 from app.core.database import SessionLocal, get_db
 from app.core.rate_limit import enforce_ip_rate_limit
-from app.core.security import get_current_user
+from app.core.security import get_effective_user
 from app.models.fino_message import FinoMessage
 from app.models.user import User
 from app.schemas.fino import FinoMessageResponse, FinoSendRequest
@@ -39,7 +39,7 @@ def _load_capabilities() -> dict:
 
 
 @router.get("/messages", response_model=list[FinoMessageResponse])
-def list_messages(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def list_messages(db: Session = Depends(get_db), current_user: User = Depends(get_effective_user)):
     return (
         db.query(FinoMessage).filter(FinoMessage.user_id == current_user.id).order_by(FinoMessage.created_at).all()
     )
@@ -50,9 +50,10 @@ def send_message(
     request: Request,
     payload: FinoSendRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_effective_user),
 ):
-    enforce_ip_rate_limit(request, f"fino-{current_user.id}", max_per_minute=settings.fino_rate_limit_per_minute)
+    limit = settings.fino_demo_rate_limit_per_minute if current_user.is_demo else settings.fino_rate_limit_per_minute
+    enforce_ip_rate_limit(request, f"fino-{current_user.id}", max_per_minute=limit)
 
     db.add(FinoMessage(user_id=current_user.id, role="user", content=payload.message))
     db.commit()

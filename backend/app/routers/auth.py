@@ -15,6 +15,7 @@ from app.core.security import (
 )
 from app.models.budget import Budget
 from app.models.category import Category
+from app.models.fino_message import FinoMessage
 from app.models.forecast import Forecast
 from app.models.goal import Goal
 from app.models.recommendation import Recommendation
@@ -36,6 +37,8 @@ def _to_user_response(db: Session, user: User) -> UserResponse:
         picture_url=user.picture_url,
         created_at=user.created_at,
         onboarding_status=profile.status if profile else "not_started",
+        is_demo=user.is_demo,
+        test_mode_enabled=user.test_mode_enabled,
     )
 
 
@@ -124,16 +127,27 @@ def delete_me(
 ):
     """Permanently deletes the account and every row it owns. User-owned
     categories only — system categories (user_id IS NULL) are shared and
-    stay put for everyone else."""
-    user_id = current_user.id
-    db.query(Transaction).filter(Transaction.user_id == user_id).delete()
-    db.query(Budget).filter(Budget.user_id == user_id).delete()
-    db.query(Goal).filter(Goal.user_id == user_id).delete()
-    db.query(Forecast).filter(Forecast.user_id == user_id).delete()
-    db.query(Recommendation).filter(Recommendation.user_id == user_id).delete()
-    db.query(Category).filter(Category.user_id == user_id).delete()
-    db.query(RefreshToken).filter(RefreshToken.user_id == user_id).delete()
-    db.query(UserProfile).filter(UserProfile.user_id == user_id).delete()
+    stay put for everyone else. If this account has a linked shadow demo
+    account (from ever enabling test mode), that gets wiped too — nothing
+    should survive a delete just because it lived in the demo namespace."""
+
+    def _delete_all_owned_rows(uid: str) -> None:
+        db.query(Transaction).filter(Transaction.user_id == uid).delete()
+        db.query(Budget).filter(Budget.user_id == uid).delete()
+        db.query(Goal).filter(Goal.user_id == uid).delete()
+        db.query(Forecast).filter(Forecast.user_id == uid).delete()
+        db.query(Recommendation).filter(Recommendation.user_id == uid).delete()
+        db.query(Category).filter(Category.user_id == uid).delete()
+        db.query(RefreshToken).filter(RefreshToken.user_id == uid).delete()
+        db.query(UserProfile).filter(UserProfile.user_id == uid).delete()
+        db.query(FinoMessage).filter(FinoMessage.user_id == uid).delete()
+
+    if current_user.demo_shadow_user_id:
+        shadow_id = current_user.demo_shadow_user_id
+        _delete_all_owned_rows(shadow_id)
+        db.query(User).filter(User.id == shadow_id).delete()
+
+    _delete_all_owned_rows(current_user.id)
     db.delete(current_user)
     db.commit()
 
