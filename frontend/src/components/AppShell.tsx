@@ -14,7 +14,7 @@ const NAV_ITEMS = [
 /**
  * 232px fixed left sidebar used by every in-app page (not the landing page,
  * which has its own top nav). Matches the design system: white surface,
- * 1px hairline right border, logo at 22px, active nav item as a filled
+ * 1px hairline right border, logo at 38px, active nav item as a filled
  * indigo pill.
  */
 export function AppShell() {
@@ -22,9 +22,9 @@ export function AppShell() {
 
   return (
     <div className="flex min-h-screen bg-canvas">
-      <aside className="sticky top-0 flex h-screen w-[232px] flex-none flex-col border-r border-hairline bg-card px-5 py-7">
-        <NavLink to="/" className="mb-10 px-2">
-          <BrandMark size={22} />
+      <aside className="sticky top-0 flex h-screen w-[232px] flex-none flex-col border-r border-hairline bg-card px-5 py-8">
+        <NavLink to="/" className="mb-9 px-2">
+          <BrandMark size={38} />
         </NavLink>
         <nav className="flex flex-1 flex-col gap-1">
           {NAV_ITEMS.map((item) => (

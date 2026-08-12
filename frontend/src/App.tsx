@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext'
 import { AppShell } from './components/AppShell'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { OnboardingGate } from './components/OnboardingGate'
+import { DisclaimerBar } from './components/DisclaimerBar'
 import { LandingPage } from './pages/LandingPage'
 import { SignInPage } from './pages/SignInPage'
 import { OnboardingPage } from './pages/OnboardingPage'
@@ -50,6 +51,7 @@ function App() {
             </Route>
           </Route>
         </Routes>
+        <DisclaimerBar />
       </CurrencyProvider>
     </AuthProvider>
   )

@@ -32,10 +32,17 @@ export function LandingPage() {
 
   return (
     <div className="font-body text-body">
-      {/* NAV — logo · links · sign in · CTA, left to right */}
-      <div className="mx-auto flex max-w-[1320px] items-center justify-between px-6 py-5 sm:px-12 sm:py-7">
+      {/* NAV — logo · links · sign in · CTA, left to right. Logo is full
+          lockup from 640px up; icon-only glyph below that so it doesn't
+          crowd the sign-in/CTA buttons on a phone-width screen. */}
+      <div className="mx-auto flex max-w-[1320px] items-center justify-between px-6 py-6 sm:px-12 sm:py-9">
         <Link to="/">
-          <BrandMark size={20} />
+          <span className="hidden sm:inline-flex">
+            <BrandMark size={36} />
+          </span>
+          <span className="inline-flex sm:hidden">
+            <BrandMark size={30} iconOnly />
+          </span>
         </Link>
         <div className="hidden gap-9 text-[14.5px] text-secondary sm:flex">
           {NAV_LINKS.map((label) => (

@@ -78,6 +78,13 @@
   --shadow-card-hover: 0 28px 60px -22px rgba(30, 30, 40, 0.16);
 }
 
+/* Height the persistent DisclaimerBar reserves at the bottom of the
+   viewport — kept as one variable so the bar and the page's bottom
+   padding can never drift out of sync. */
+:root {
+  --disclaimer-bar-h: 40px;
+}
+
 /* Spacing uses Tailwind's default 4px-base numeric scale directly —
  * p-1=4px, p-2=8px, p-3=12px, p-4=16px, p-6=24px, p-8=32px, p-12=48px,
  * p-16=64px, p-24=96px — which already covers the 4/8/12/16/24/32/48/64/96
@@ -93,6 +100,7 @@
 
 body {
   margin: 0;
+  padding-bottom: var(--disclaimer-bar-h);
   background: var(--color-canvas);
   color: var(--color-body);
   font-family: var(--font-body);
