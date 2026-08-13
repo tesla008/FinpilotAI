@@ -1,9 +1,10 @@
 import pytest
 from pydantic import ValidationError
 
-from app.ai.client import ClaudeUnavailableError, _extract_json
 from app.ai.recommendations import FALLBACK_OUTPUT, _call_with_retry
 from app.ai.schema import RecommendationOutput
+from app.llm.base import LLMUnavailableError, LLMValidationError
+from app.llm.providers.claude import _extract_json
 
 VALID_PAYLOAD = {
     "summary": "You spent 20% more on dining this month.",
@@ -55,9 +56,9 @@ def test_extract_json_handles_bare_json():
 
 def test_call_with_retry_degrades_to_fallback_after_repeated_failure(monkeypatch):
     def always_fails(summary):
-        raise ClaudeUnavailableError("simulated outage")
+        raise LLMUnavailableError("simulated outage")
 
-    monkeypatch.setattr("app.ai.recommendations.call_claude", always_fails)
+    monkeypatch.setattr("app.ai.recommendations._generate", always_fails)
     result = _call_with_retry({"some": "summary"})
     assert result is FALLBACK_OUTPUT
 
@@ -68,10 +69,10 @@ def test_call_with_retry_recovers_on_second_attempt(monkeypatch):
     def fails_once_then_succeeds(summary):
         calls["count"] += 1
         if calls["count"] == 1:
-            raise ClaudeUnavailableError("transient")
-        return VALID_PAYLOAD
+            raise LLMUnavailableError("transient")
+        return RecommendationOutput.model_validate(VALID_PAYLOAD)
 
-    monkeypatch.setattr("app.ai.recommendations.call_claude", fails_once_then_succeeds)
+    monkeypatch.setattr("app.ai.recommendations._generate", fails_once_then_succeeds)
     result = _call_with_retry({"some": "summary"})
     assert result is not FALLBACK_OUTPUT
     assert result.summary == VALID_PAYLOAD["summary"]
@@ -83,10 +84,10 @@ def test_call_with_retry_retries_once_on_schema_validation_failure(monkeypatch):
     def bad_then_good(summary):
         calls["count"] += 1
         if calls["count"] == 1:
-            return {"summary": "missing required fields"}
-        return VALID_PAYLOAD
+            raise LLMValidationError("missing required fields")
+        return RecommendationOutput.model_validate(VALID_PAYLOAD)
 
-    monkeypatch.setattr("app.ai.recommendations.call_claude", bad_then_good)
+    monkeypatch.setattr("app.ai.recommendations._generate", bad_then_good)
     result = _call_with_retry({"some": "summary"})
     assert calls["count"] == 2
     assert result.summary == VALID_PAYLOAD["summary"]

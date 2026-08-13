@@ -1,12 +1,12 @@
 import logging
 
-from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from app.ai.client import ClaudeUnavailableError, call_claude_vision
 from app.ai.vision_prompt import EXTRACTION_USER_MESSAGE, build_extraction_system_prompt
 from app.ai.vision_schema import TransactionExtraction
 from app.ingestion.image_processing import UnsupportedImageError, process_screenshot
+from app.llm.base import LLMUnavailableError, LLMValidationError
+from app.llm.factory import get_provider
 from app.models.category import Category, owned_or_system
 
 logger = logging.getLogger("finpilot.extraction")
@@ -14,9 +14,16 @@ logger = logging.getLogger("finpilot.extraction")
 
 class ExtractionFailedError(Exception):
     """Raised whenever we can't hand back a trustworthy extraction — a bad
-    upload, an unreachable Claude API, or a response that failed schema
+    upload, an unreachable provider, or a response that failed schema
     validation. Callers turn this into a clean 4xx, never a raw model
     response or a stack trace."""
+
+
+def _extract(jpeg_bytes: bytes, media_type: str, system_prompt: str, user_text: str) -> TransactionExtraction:
+    provider = get_provider("vision")
+    result = provider.analyze_image(jpeg_bytes, media_type, system_prompt, user_text, TransactionExtraction)
+    assert isinstance(result, TransactionExtraction)
+    return result
 
 
 def extract_transaction(db: Session, raw_image: bytes, user_id: str) -> TransactionExtraction:
@@ -31,14 +38,11 @@ def extract_transaction(db: Session, raw_image: bytes, user_id: str) -> Transact
     system_prompt = build_extraction_system_prompt(category_names)
 
     try:
-        raw = call_claude_vision(jpeg_bytes, media_type, system_prompt, EXTRACTION_USER_MESSAGE)
-    except ClaudeUnavailableError as exc:
+        extraction = _extract(jpeg_bytes, media_type, system_prompt, EXTRACTION_USER_MESSAGE)
+    except LLMUnavailableError as exc:
         logger.warning("Screenshot extraction failed: %s", exc)
         raise ExtractionFailedError("Could not read this image right now — please try again.") from exc
-
-    try:
-        extraction = TransactionExtraction.model_validate(raw)
-    except ValidationError as exc:
+    except LLMValidationError as exc:
         logger.warning("Screenshot extraction returned an invalid shape: %s", exc)
         raise ExtractionFailedError("Could not confidently read this image.") from exc
 

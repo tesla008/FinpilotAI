@@ -1,23 +1,22 @@
 """Orchestrates the AI recommendation flow: build a grounded summary, check
-the cache, call Claude with one retry on a schema failure, and always
-degrade to a safe fallback rather than let an API problem break the
+the cache, call the configured provider with one retry on failure, and
+always degrade to a safe fallback rather than let an API problem break the
 dashboard. Prompt/schema/orchestration are kept in this one file (plus
 schema.py/prompt.py alongside it) since the brief calls out that these get
 iterated on a lot during development.
 """
 import logging
 
-from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from app.ai.client import ClaudeUnavailableError, call_claude
+from app.ai.prompt import SYSTEM_PROMPT, build_user_message
 from app.ai.schema import RecommendationOutput
 from app.ai.summary import build_summary, data_version
-from app.core.config import get_settings
+from app.llm.base import LLMUnavailableError, LLMValidationError
+from app.llm.factory import get_provider
 from app.models.recommendation import Recommendation
 
 logger = logging.getLogger("finpilot.ai")
-settings = get_settings()
 
 FALLBACK_OUTPUT = RecommendationOutput(
     summary="AI advice is temporarily unavailable — your numbers below are unaffected.",
@@ -68,7 +67,7 @@ def get_recommendations(
             data_version=version,
             input_summary=summary,
             output=output.model_dump(),
-            model_version=settings.anthropic_model,
+            model_version=get_provider("advice").model,
         )
         db.add(record)
         db.commit()
@@ -76,15 +75,25 @@ def get_recommendations(
     return output, False
 
 
+def _generate(summary: dict) -> RecommendationOutput:
+    provider = get_provider("advice")
+    result = provider.generate_structured(
+        messages=[{"role": "user", "content": build_user_message(summary)}],
+        system_prompt=SYSTEM_PROMPT,
+        schema=RecommendationOutput,
+    )
+    assert isinstance(result, RecommendationOutput)
+    return result
+
+
 def _call_with_retry(summary: dict) -> RecommendationOutput:
     for attempt in range(2):
         try:
-            raw = call_claude(summary)
-            return RecommendationOutput.model_validate(raw)
-        except ClaudeUnavailableError as exc:
-            logger.warning("Claude call failed (attempt %d): %s", attempt + 1, exc)
-        except ValidationError as exc:
-            logger.warning("Claude response failed schema validation (attempt %d): %s", attempt + 1, exc)
+            return _generate(summary)
+        except LLMUnavailableError as exc:
+            logger.warning("LLM call failed (attempt %d): %s", attempt + 1, exc)
+        except LLMValidationError as exc:
+            logger.warning("LLM response failed schema validation (attempt %d): %s", attempt + 1, exc)
 
     logger.error("AI recommendations unavailable after retry — degrading to fallback.")
     return FALLBACK_OUTPUT

@@ -19,6 +19,15 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-6"
 
+    # Per-purpose LLM provider selection (app/llm/factory.py). All default
+    # to "claude" — the only provider actually implemented so far. Fino's
+    # default is documented to flip to "gemini" once GeminiProvider ships;
+    # until then, setting any of these to "gemini" raises a clear config
+    # error rather than silently doing something wrong.
+    llm_provider_fino: str = "claude"
+    llm_provider_advice: str = "claude"
+    llm_provider_vision: str = "claude"
+
     max_csv_upload_mb: int = 5
     max_screenshot_upload_mb: int = 8
     screenshot_extract_rate_limit_per_minute: int = 6

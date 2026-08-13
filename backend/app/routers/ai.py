@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from app.ai.client import call_claude
+from app.ai.prompt import SYSTEM_PROMPT, build_user_message
 from app.ai.recommendations import get_recommendations
 from app.ai.schema import RecommendationOutput
 from app.ai.summary import build_summary
@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.rate_limit import enforce_ip_rate_limit
 from app.core.security import get_effective_user
+from app.llm.factory import get_provider
 from app.models.user import User
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -45,8 +46,14 @@ def whatif_commentary(
     combined = {**base_summary, "whatif_scenario": scenario}
 
     try:
-        raw = call_claude(combined)
-        return RecommendationOutput.model_validate(raw).model_dump()
+        provider = get_provider("advice")
+        output = provider.generate_structured(
+            messages=[{"role": "user", "content": build_user_message(combined)}],
+            system_prompt=SYSTEM_PROMPT,
+            schema=RecommendationOutput,
+        )
+        assert isinstance(output, RecommendationOutput)
+        return output.model_dump()
     except Exception:
         return {
             "summary": "AI commentary is temporarily unavailable — your projected numbers above are unaffected.",

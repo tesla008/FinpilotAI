@@ -8,6 +8,7 @@ from app.ai.extraction import ExtractionFailedError, extract_transaction
 from app.ai.vision_schema import TransactionExtraction
 from app.core.rate_limit import enforce_ip_rate_limit
 from app.ingestion.image_processing import UnsupportedImageError, process_screenshot
+from app.llm.base import LLMUnavailableError, LLMValidationError
 
 TEST_USER_ID = "11111111-1111-1111-1111-111111111111"
 
@@ -136,7 +137,9 @@ def test_process_screenshot_strips_exif():
 
 
 def test_extract_transaction_returns_validated_model(db_session, monkeypatch):
-    monkeypatch.setattr("app.ai.extraction.call_claude_vision", lambda *a, **k: VALID_EXTRACTION)
+    monkeypatch.setattr(
+        "app.ai.extraction._extract", lambda *a, **k: TransactionExtraction.model_validate(VALID_EXTRACTION)
+    )
     result = extract_transaction(db_session, _png_bytes(), TEST_USER_ID)
     assert result.is_transaction is True
     assert result.merchant == "Blue Bottle Coffee"
@@ -144,14 +147,18 @@ def test_extract_transaction_returns_validated_model(db_session, monkeypatch):
 
 def test_extract_transaction_nulls_out_category_not_in_db(db_session, monkeypatch):
     bogus_category = {**VALID_EXTRACTION, "category": "TotallyMadeUpCategory"}
-    monkeypatch.setattr("app.ai.extraction.call_claude_vision", lambda *a, **k: bogus_category)
+    monkeypatch.setattr(
+        "app.ai.extraction._extract", lambda *a, **k: TransactionExtraction.model_validate(bogus_category)
+    )
     result = extract_transaction(db_session, _png_bytes(), TEST_USER_ID)
     assert result.category is None
     assert "category" in result.unreadable_fields
 
 
 def test_extract_transaction_handles_non_transaction_image(db_session, monkeypatch):
-    monkeypatch.setattr("app.ai.extraction.call_claude_vision", lambda *a, **k: NOT_A_TRANSACTION)
+    monkeypatch.setattr(
+        "app.ai.extraction._extract", lambda *a, **k: TransactionExtraction.model_validate(NOT_A_TRANSACTION)
+    )
     result = extract_transaction(db_session, _png_bytes(), TEST_USER_ID)
     assert result.is_transaction is False
     assert result.amount is None
@@ -159,14 +166,26 @@ def test_extract_transaction_handles_non_transaction_image(db_session, monkeypat
 
 def test_extract_transaction_rejects_bad_upload_before_calling_claude(db_session, monkeypatch):
     called = {"hit": False}
-    monkeypatch.setattr("app.ai.extraction.call_claude_vision", lambda *a, **k: called.update(hit=True))
+    monkeypatch.setattr("app.ai.extraction._extract", lambda *a, **k: called.update(hit=True))
     with pytest.raises(ExtractionFailedError):
         extract_transaction(db_session, b"not an image", TEST_USER_ID)
     assert called["hit"] is False  # never spent an API call on an invalid upload
 
 
+def test_extract_transaction_raises_clean_error_on_provider_unavailable(db_session, monkeypatch):
+    def _raise(*a, **k):
+        raise LLMUnavailableError("simulated outage")
+
+    monkeypatch.setattr("app.ai.extraction._extract", _raise)
+    with pytest.raises(ExtractionFailedError):
+        extract_transaction(db_session, _png_bytes(), TEST_USER_ID)
+
+
 def test_extract_transaction_raises_clean_error_on_malformed_model_response(db_session, monkeypatch):
-    monkeypatch.setattr("app.ai.extraction.call_claude_vision", lambda *a, **k: {"garbage": True})
+    def _raise(*a, **k):
+        raise LLMValidationError("bad shape")
+
+    monkeypatch.setattr("app.ai.extraction._extract", _raise)
     with pytest.raises(ExtractionFailedError):
         extract_transaction(db_session, _png_bytes(), TEST_USER_ID)
 

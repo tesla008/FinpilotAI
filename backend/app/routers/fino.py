@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.ai.client import ClaudeUnavailableError, stream_claude
 from app.ai.fino_context import build_fino_context
 from app.ai.fino_history import split_history, to_anthropic_messages
 from app.ai.fino_prompt import build_fino_system_prompt
@@ -14,6 +13,8 @@ from app.core.config import get_settings
 from app.core.database import SessionLocal, get_db
 from app.core.rate_limit import enforce_ip_rate_limit
 from app.core.security import get_effective_user
+from app.llm.base import LLMUnavailableError
+from app.llm.factory import get_provider
 from app.models.fino_message import FinoMessage
 from app.models.user import User
 from app.schemas.fino import FinoMessageResponse, FinoSendRequest
@@ -36,6 +37,11 @@ def _load_capabilities() -> dict:
     if _capabilities_cache is None:
         _capabilities_cache = jsonlib.loads(_CAPABILITIES_PATH.read_text())
     return _capabilities_cache
+
+
+def _stream_reply(system_prompt: str, messages: list[dict]):
+    provider = get_provider("fino")
+    return provider.generate(messages=messages, system_prompt=system_prompt, stream=True)
 
 
 @router.get("/messages", response_model=list[FinoMessageResponse])
@@ -79,15 +85,15 @@ def send_message(
 
         for attempt in range(2):
             try:
-                stream = stream_claude(system_prompt, messages)
+                stream = _stream_reply(system_prompt, messages)
                 first_chunk = next(stream)
                 full_text += first_chunk
                 yield first_chunk
                 last_error = None
                 break
             except StopIteration:
-                last_error = ClaudeUnavailableError("empty response")
-            except ClaudeUnavailableError as exc:
+                last_error = LLMUnavailableError("empty response")
+            except LLMUnavailableError as exc:
                 last_error = exc
                 logger.warning("Fino stream failed to start (attempt %d): %s", attempt + 1, exc)
 
@@ -99,7 +105,7 @@ def send_message(
                 for delta in stream:
                     full_text += delta
                     yield delta
-            except ClaudeUnavailableError as exc:
+            except LLMUnavailableError as exc:
                 logger.warning("Fino stream interrupted mid-response: %s", exc)
 
         # The request-scoped `db` dependency is closed by the time this
