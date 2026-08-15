@@ -7,6 +7,7 @@ from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.core.seed_categories import ensure_system_categories
 from app.routers import (
+    advice,
     ai,
     analysis,
     auth,
@@ -63,6 +64,7 @@ app.include_router(onboarding.router)
 app.include_router(fino.router)
 app.include_router(demo.router)
 app.include_router(health.router)
+app.include_router(advice.router)
 
 
 @app.get("/health")

@@ -1,3 +1,4 @@
+from app.models.advice import Advice, AdviceActionState
 from app.models.budget import Budget
 from app.models.category import Category
 from app.models.fino_message import FinoMessage
@@ -10,6 +11,8 @@ from app.models.user import User
 from app.models.user_profile import UserProfile
 
 __all__ = [
+    "Advice",
+    "AdviceActionState",
     "Category",
     "Transaction",
     "Budget",

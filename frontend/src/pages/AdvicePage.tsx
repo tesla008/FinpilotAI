@@ -1,62 +1,185 @@
-import { budgetingAdvice, savingAdvice, investingAdvice, type AdviceCard } from '../data/mockData'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { api } from '../lib/api'
+import { useCurrency } from '../lib/currency'
+import { Skeleton } from '../components/Skeleton'
+import { AdviceRecommendationCard } from '../components/AdviceRecommendationCard'
+import type { AdviceResponse, Category, RecommendationStatus } from '../lib/types'
+
+const SEVERITY_STYLE: Record<string, { border: string; text: string }> = {
+  urgent: { border: 'var(--color-overspend)', text: 'var(--color-overspend-ink)' },
+  watch: { border: 'var(--color-warning)', text: 'var(--color-warning-ink)' },
+  info: { border: 'var(--color-border)', text: 'var(--color-secondary)' },
+}
 
 export function AdvicePage() {
+  const currency = useCurrency()
+  const navigate = useNavigate()
+  const [data, setData] = useState<AdviceResponse | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [error, setError] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+
+  useEffect(() => {
+    api.get<Category[]>('/categories').then((res) => setCategories(res.data))
+    load(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function load(forceRefresh: boolean) {
+    setError(false)
+    try {
+      const res = await api.post<AdviceResponse>('/api/advice', null, { params: { force_refresh: forceRefresh } })
+      setData(res.data)
+    } catch {
+      setError(true)
+    }
+  }
+
+  async function handleRefresh() {
+    setRefreshing(true)
+    try {
+      await load(true)
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  async function handleStatusChange(id: string, status: RecommendationStatus) {
+    if (!data) return
+    // Optimistic update — the advice row is cached server-side, so this PATCH
+    // persists against that same row regardless of when it's next fetched.
+    setData({ ...data, recommendations: data.recommendations.map((r) => (r.id === id ? { ...r, status } : r)) })
+    try {
+      await api.patch(`/api/advice/recommendations/${id}/status`, { status })
+    } catch {
+      // Leave the optimistic state — a failed PATCH here isn't worth interrupting the user for.
+    }
+  }
+
+  const evidenceLink = useMemo(() => {
+    return (metric: string, period: string) => {
+      const match = categories.find((c) => metric.toLowerCase().includes(c.name.toLowerCase()))
+      if (!match) return null
+      const periodMatch = /^(\d{4})-(\d{2})$/.exec(period)
+      const params = new URLSearchParams({ category_id: match.id })
+      if (periodMatch) {
+        const [, year, month] = periodMatch
+        const lastDay = new Date(Number(year), Number(month), 0).getDate()
+        params.set('date_from', `${year}-${month}-01`)
+        params.set('date_to', `${year}-${month}-${String(lastDay).padStart(2, '0')}`)
+      }
+      return `/transactions?${params.toString()}`
+    }
+  }, [categories])
+
+  if (error) {
+    return (
+      <div className="card-lifted px-6 py-16 text-center">
+        <p className="text-sm text-muted">Couldn't load your advice right now.</p>
+        <button onClick={() => load(false)} className="mt-3 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white">
+          Try again
+        </button>
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-9 w-64" />
+        <Skeleton className="h-32 w-full rounded-2xl" />
+        <Skeleton className="h-48 w-full rounded-2xl" />
+      </div>
+    )
+  }
+
   return (
     <div>
-      <div className="mb-9">
-        <h1 className="font-heading text-h2 font-bold text-heading">AI Advisor</h1>
-        <p className="mt-1.5 text-sm text-muted">Recommendations grounded in your actual numbers</p>
-      </div>
-
-      <AdviceSection title="Budgeting" cards={budgetingAdvice} />
-      <AdviceSection title="Saving" cards={savingAdvice} />
-      <AdviceSection title="Investing" cards={investingAdvice} last />
-    </div>
-  )
-}
-
-function AdviceSection({ title, cards, last }: { title: string; cards: AdviceCard[]; last?: boolean }) {
-  return (
-    <div className={last ? '' : 'mb-11'}>
-      <div className="mb-4 text-caption font-semibold tracking-[0.08em] text-muted uppercase">{title}</div>
-      <div className="flex flex-col gap-4">
-        {cards.map((card) => (
-          <AdviceCardView key={card.id} card={card} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function AdviceCardView({ card }: { card: AdviceCard }) {
-  return (
-    <div
-      className="relative rounded-lg p-px"
-      style={{ background: 'linear-gradient(135deg, var(--color-cyan), var(--color-primary))' }}
-    >
-      <div className="relative overflow-hidden rounded-[19px] bg-card p-7">
-        <div
-          className="pointer-events-none absolute -top-[70px] -right-[70px] h-[200px] w-[200px] rounded-full"
-          style={{ background: 'radial-gradient(circle, color-mix(in srgb, var(--color-cyan) 30%, transparent), transparent 70%)' }}
-        />
-        <div className="relative z-10 mb-3.5 flex items-center gap-2.5">
-          <span
-            className="inline-block h-5.5 w-5.5 rounded-md"
-            style={{ background: 'linear-gradient(135deg, var(--color-cyan), var(--color-primary))' }}
-          />
-          <span className="text-[12px] font-semibold tracking-[0.05em] text-primary uppercase">FinPilot suggests</span>
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-h2 font-bold text-heading">AI Advisor</h1>
+          <p className="mt-1.5 text-sm text-muted">Recommendations grounded in your actual numbers</p>
         </div>
-        <div className="relative z-10 grid grid-cols-1 items-center gap-6 sm:grid-cols-[1fr_auto]">
-          <div>
-            <div className="font-heading mb-2 text-[18px] font-bold text-heading">{card.headline}</div>
-            <div className="text-[14.5px] leading-relaxed text-secondary">{card.body}</div>
-          </div>
-          <div className="flex-none text-right">
-            <div className="font-heading text-h2 font-bold tracking-tight text-heading tabular-nums">{card.figure}</div>
-            <div className="mt-0.5 text-xs text-muted">{card.figureLabel}</div>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-secondary hover:bg-hairline disabled:opacity-50"
+        >
+          {refreshing ? 'Refreshing…' : 'Refresh advice'}
+        </button>
+      </div>
+
+      {data.is_fallback && (
+        <div className="mb-6 rounded-xl border border-[var(--color-warning)]/25 bg-[var(--color-warning-soft)] px-4 py-3 text-sm text-[var(--color-warning-ink)]">
+          AI advice is temporarily unavailable — showing a rule-based summary from your numbers instead. Try refreshing in a moment.
+        </div>
+      )}
+
+      <div className="mb-8 rounded-2xl p-6" style={{ background: 'linear-gradient(135deg, var(--color-ai-soft), var(--color-card))', border: '1px solid var(--color-primary-border)' }}>
+        <div className="flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: 'var(--color-ai)' }}>
+            AI
+          </span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted">FinPilot Advisor{data.cached ? ' · cached' : ''}</span>
+        </div>
+        <p className="mt-3 text-base font-medium leading-relaxed text-heading">{data.headline}</p>
+      </div>
+
+      {data.insights.length > 0 && (
+        <div className="mb-8">
+          <h2 className="font-heading mb-4 text-base font-semibold text-heading">Insights</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {data.insights.map((insight, i) => {
+              const style = SEVERITY_STYLE[insight.severity] ?? SEVERITY_STYLE.info
+              const link = evidenceLink(insight.evidence.metric, insight.evidence.period)
+              return (
+                <div key={i} className="rounded-xl border p-4" style={{ borderColor: `${style.border}55` }}>
+                  <p className="text-sm font-semibold text-heading">{insight.title}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-secondary">{insight.detail}</p>
+                  <div className="mt-2 flex items-center justify-between text-xs">
+                    <span style={{ color: style.text }}>
+                      {insight.evidence.metric}: {insight.evidence.value} ({insight.evidence.period})
+                    </span>
+                    {link && (
+                      <button onClick={() => navigate(link)} className="font-medium text-primary hover:underline">
+                        View transactions →
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
+      )}
+
+      <div className="mb-8">
+        <h2 className="font-heading mb-4 text-base font-semibold text-heading">Recommendations</h2>
+        {data.recommendations.length === 0 ? (
+          <p className="card p-6 text-sm text-muted">Not enough data yet for specific recommendations — add more transactions to unlock these.</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {data.recommendations.map((rec) => (
+              <AdviceRecommendationCard key={rec.id} recommendation={rec} currency={currency} onStatusChange={handleStatusChange} />
+            ))}
+          </div>
+        )}
       </div>
+
+      {data.questions_to_consider.length > 0 && (
+        <div className="card p-6">
+          <h2 className="font-heading mb-3 text-base font-semibold text-heading">Questions worth thinking about</h2>
+          <ul className="space-y-1.5">
+            {data.questions_to_consider.map((q, i) => (
+              <li key={i} className="flex gap-2 text-sm text-secondary">
+                <span className="text-primary">•</span>
+                {q}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

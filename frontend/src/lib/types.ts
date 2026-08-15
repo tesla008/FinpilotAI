@@ -274,6 +274,45 @@ export interface HealthScoreResponse {
   trend: HealthTrendPoint[]
 }
 
+// --- AI advisor (/api/advice) ---
+
+export interface AdviceEvidence {
+  metric: string
+  value: string
+  period: string
+}
+
+export interface AdviceInsight {
+  title: string
+  detail: string
+  evidence: AdviceEvidence
+  severity: 'info' | 'watch' | 'urgent'
+}
+
+export type RecommendationStatus = 'pending' | 'dismissed' | 'done'
+
+export interface AdviceRecommendation {
+  id: string
+  action: string
+  why: string
+  impact_inr_per_month: number
+  effort: 'low' | 'medium' | 'high'
+  category: 'budget' | 'save' | 'invest' | 'debt'
+  status: RecommendationStatus
+}
+
+export interface AdviceResponse {
+  advice_id: string
+  generated_at: string
+  cached: boolean
+  is_fallback: boolean
+  headline: string
+  health_score: number
+  insights: AdviceInsight[]
+  recommendations: AdviceRecommendation[]
+  questions_to_consider: string[]
+}
+
 export interface DashboardSummary {
   as_of: string
   spend_to_date: SpendToDate
