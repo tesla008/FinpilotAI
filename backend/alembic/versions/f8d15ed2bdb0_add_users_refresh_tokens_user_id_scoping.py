@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 # revision identifiers, used by Alembic.
@@ -18,13 +19,34 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 # Lets batch mode address the pre-existing anonymous UNIQUE constraints on
-# categories.name and budgets.category_id (SQLite reflects these with
-# name=None, so they're otherwise undroppable by name).
+# categories.name and budgets.category_id on SQLite, which reflects them
+# with name=None (so they're otherwise undroppable by name) and requires
+# batch mode's recreate-table strategy for any ALTER at all.
 naming_convention = {"uq": "uq_%(table_name)s_%(column_0_name)s"}
+
+
+def _unique_constraint_name(bind, table_name: str, column_name: str) -> str:
+    """On Postgres the anonymous UniqueConstraint('category_id')/('name')
+    from the base migration got a *real*, reflectable auto-generated name
+    (Postgres's own `<table>_<column>_key` convention) rather than staying
+    nameless the way SQLite leaves it — so unlike SQLite, we don't need to
+    synthesize a name here, just look up the one Postgres already gave it.
+    Discovered the hard way: hardcoding the SQLite-side synthesized name
+    (`uq_budgets_category_id`) here made this migration crash in production
+    with "constraint ... does not exist" the first time it ever ran against
+    a real Postgres database."""
+    for uc in inspect(bind).get_unique_constraints(table_name):
+        if uc["column_names"] == [column_name]:
+            return uc["name"]
+    raise RuntimeError(f"No unique constraint found on {table_name}.{column_name}")
 
 
 def upgrade() -> None:
     """Upgrade schema."""
+    bind = op.get_bind()
+    is_sqlite = bind.dialect.name == "sqlite"
+    budgets_uq = "uq_budgets_category_id" if is_sqlite else _unique_constraint_name(bind, "budgets", "category_id")
+    categories_uq = "uq_categories_name" if is_sqlite else _unique_constraint_name(bind, "categories", "name")
     op.create_table('users',
     sa.Column('id', sa.String(length=36), nullable=False),
     sa.Column('google_sub', sa.String(length=64), nullable=False),
@@ -58,14 +80,14 @@ def upgrade() -> None:
     # declares nullable=False as the going-forward invariant for new rows.
     with op.batch_alter_table('budgets', naming_convention=naming_convention) as batch_op:
         batch_op.add_column(sa.Column('user_id', sa.String(length=36), nullable=True))
-        batch_op.drop_constraint('uq_budgets_category_id', type_='unique')
+        batch_op.drop_constraint(budgets_uq, type_='unique')
         batch_op.create_index(op.f('ix_budgets_user_id'), ['user_id'], unique=False)
         batch_op.create_unique_constraint('uq_budgets_user_category', ['user_id', 'category_id'])
         batch_op.create_foreign_key('fk_budgets_user_id_users', 'users', ['user_id'], ['id'])
 
     with op.batch_alter_table('categories', naming_convention=naming_convention) as batch_op:
         batch_op.add_column(sa.Column('user_id', sa.String(length=36), nullable=True))
-        batch_op.drop_constraint('uq_categories_name', type_='unique')
+        batch_op.drop_constraint(categories_uq, type_='unique')
         batch_op.create_index(op.f('ix_categories_user_id'), ['user_id'], unique=False)
         batch_op.create_unique_constraint('uq_categories_user_name', ['user_id', 'name'])
         batch_op.create_foreign_key('fk_categories_user_id_users', 'users', ['user_id'], ['id'])
