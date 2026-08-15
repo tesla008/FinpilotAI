@@ -32,6 +32,9 @@
   --color-positive-soft: #E4F3EF;
   --color-positive-ink: #256B5F;
 
+  /* The one accent reserved for "money moving out" system-wide — budget
+     overspend, negative deltas, outflow indicators on the dashboard's
+     burn-rate strip. One meaning, used nowhere else. */
   --color-overspend: #E8785C;
   --color-overspend-soft: #FBEAE4;
   --color-overspend-ink: #B84E33;
@@ -39,6 +42,15 @@
   --color-warning: #C99A3A;
   --color-warning-soft: #FBF1DF;
   --color-warning-ink: #7A5A22;
+
+  /* The one accent reserved for AI-generated content — the advisor
+     headline, recommendation cards, any Fino-sourced text. Shares
+     warning's gold value rather than inventing a new hex, but gets its
+     own semantic name so a component marking AI content never has to
+     borrow "warning" (an unrelated meaning) to do it. Used nowhere else. */
+  --color-ai: #C99A3A;
+  --color-ai-soft: #FBF1DF;
+  --color-ai-ink: #7A5A22;
 
   /* Decorative-only accents for the landing hero's mesh gradient — not part
      of the semantic palette above, kept as named tokens rather than inline
@@ -130,6 +142,16 @@ body {
   background: var(--color-card);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
+}
+
+/* Every rupee figure in the app uses this — tabular numerals so a column
+   of amounts actually lines up, tightened tracking because tabular digits
+   run slightly wide. This is what makes a screen read as a ledger rather
+   than a template; apply it to every StatTile, table cell, and chart
+   label that shows money, no exceptions. */
+.money {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 @keyframes skeleton-pulse {
