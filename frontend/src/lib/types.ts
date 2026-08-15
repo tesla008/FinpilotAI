@@ -178,6 +178,45 @@ export interface Recommendations {
   risks: string[]
 }
 
+// --- Dashboard summary ---
+
+export interface SpendToDate {
+  current_month: string
+  days_elapsed: number
+  spend_to_date_minor: number
+  prior_month: string
+  prior_spend_to_same_day_minor: number
+  pct_change: number | null
+}
+
+export interface DailyBurnPoint {
+  day: number
+  cumulative_spend_minor: number
+}
+
+export interface RemainingBudget {
+  total_limit_minor: number
+  total_spent_minor: number
+  remaining_minor: number
+  pct_used: number
+  is_over: boolean
+}
+
+export interface CategorySlice {
+  category: string
+  spend_minor: number
+  pct_of_total: number
+}
+
+export interface DashboardSummary {
+  as_of: string
+  spend_to_date: SpendToDate
+  daily_burn: DailyBurnPoint[]
+  projected_month_end_spend_minor: number
+  remaining_budget: RemainingBudget
+  top_categories: CategorySlice[]
+}
+
 // --- CSV import ---
 
 export interface ColumnMapping {

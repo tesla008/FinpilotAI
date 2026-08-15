@@ -5,9 +5,9 @@ import { Skeleton } from './Skeleton'
 import type { Recommendations } from '../lib/types'
 
 const PRIORITY_STYLE: Record<string, string> = {
-  high: 'bg-[var(--red-soft)] text-[var(--red)]',
-  medium: 'bg-[var(--amber-soft)] text-[var(--amber)]',
-  low: 'bg-[var(--accent-soft)] text-[var(--accent)]',
+  high: 'bg-[var(--color-overspend-soft)] text-[var(--color-overspend-ink)]',
+  medium: 'bg-[var(--color-warning-soft)] text-[var(--color-warning-ink)]',
+  low: 'bg-[var(--color-positive-soft)] text-[var(--color-positive-ink)]',
 }
 
 export function AIPanel({
@@ -34,22 +34,22 @@ export function AIPanel({
     <div
       className="rounded-2xl p-6"
       style={{
-        background: 'linear-gradient(135deg, var(--surface-tint), var(--surface))',
-        boxShadow: 'var(--shadow-md)',
-        border: '1px solid #e9e5ff',
+        background: 'linear-gradient(135deg, var(--color-ai-soft), var(--color-card))',
+        boxShadow: 'var(--shadow-card)',
+        border: '1px solid var(--color-primary-border)',
       }}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#4338CA] text-xs font-semibold text-white">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
             AI
           </span>
-          <h2 className="font-display text-base font-semibold text-[var(--text-primary)]">FinPilot Advisor</h2>
+          <h2 className="font-heading text-base font-semibold text-heading">FinPilot Advisor</h2>
         </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing || isLoading}
-          className="text-xs font-medium text-[#4338CA] hover:underline disabled:opacity-50"
+          className="text-xs font-medium text-primary hover:underline disabled:opacity-50"
         >
           {refreshing ? 'Refreshing…' : 'Refresh'}
         </button>
@@ -68,13 +68,13 @@ export function AIPanel({
           transition={{ duration: 0.3 }}
           className="mt-4 space-y-4"
         >
-          <p className="text-sm leading-relaxed text-[var(--text-primary)]">{data.summary}</p>
+          <p className="text-sm leading-relaxed text-heading">{data.summary}</p>
 
           {data.insights.length > 0 && (
             <ul className="space-y-1.5">
               {data.insights.map((insight, i) => (
-                <li key={i} className="flex gap-2 text-sm text-[var(--text-secondary)]">
-                  <span className="text-[#4338CA]">•</span>
+                <li key={i} className="flex gap-2 text-sm text-secondary">
+                  <span className="text-primary">•</span>
                   {insight}
                 </li>
               ))}
@@ -84,15 +84,15 @@ export function AIPanel({
           {data.recommendations.length > 0 && (
             <div className="space-y-2">
               {data.recommendations.map((rec, i) => (
-                <div key={i} className="rounded-xl border border-[var(--border)] bg-white/70 p-3">
+                <div key={i} className="rounded-xl border border-border bg-card/70 p-3">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">{rec.title}</p>
+                    <p className="text-sm font-semibold text-heading">{rec.title}</p>
                     <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${PRIORITY_STYLE[rec.priority]}`}>
                       {rec.priority}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-[var(--text-secondary)]">{rec.rationale}</p>
-                  <p className="mt-1 text-xs font-medium text-[var(--accent)]">{rec.projected_impact}</p>
+                  <p className="mt-1 text-xs text-secondary">{rec.rationale}</p>
+                  <p className="money mt-1 text-xs font-medium text-primary">{rec.projected_impact}</p>
                 </div>
               ))}
             </div>
@@ -100,10 +100,10 @@ export function AIPanel({
 
           {data.risks.length > 0 && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Risks</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">Risks</p>
               <ul className="mt-1 space-y-1">
                 {data.risks.map((risk, i) => (
-                  <li key={i} className="text-xs text-[var(--red)]">
+                  <li key={i} className="text-xs text-[var(--color-overspend)]">
                     {risk}
                   </li>
                 ))}
@@ -111,7 +111,7 @@ export function AIPanel({
             </div>
           )}
 
-          {data.cached && <p className="text-[10px] text-[var(--text-tertiary)]">Cached — data hasn't changed since last generation.</p>}
+          {data.cached && <p className="text-[10px] text-muted">Cached — data hasn't changed since last generation.</p>}
         </motion.div>
       ) : null}
     </div>

@@ -58,6 +58,19 @@
   --color-mesh-violet: #6C6BF4;
   --color-mesh-gold: #E8C97A;
 
+  /* Categorical palette for charts that plot several unrelated categories
+     side by side (spend-by-category bars, pie slices) — order carries no
+     meaning beyond "the Nth series", unlike the semantic colors above.
+     Never reuse overspend/warning/ai here — those are reserved meanings. */
+  --color-chart-1: #4338CA;
+  --color-chart-2: #0A4A46;
+  --color-chart-3: #3F9E8F;
+  --color-chart-4: #6C6BF4;
+  --color-chart-5: #B8843A;
+  --color-chart-6: #5B5B66;
+  --color-chart-7: #8B5CF6;
+  --color-chart-8: #2F6690;
+
   --font-heading: 'Sora', sans-serif;
   --font-body: 'Public Sans', sans-serif;
 

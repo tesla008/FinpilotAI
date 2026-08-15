@@ -1,40 +1,87 @@
-import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { motion, useReducedMotion } from 'framer-motion'
 import { api } from '../lib/api'
 import { useCurrency } from '../lib/currency'
-import { formatMoney } from '../lib/format'
+import { formatDate, formatMoney, formatMonth } from '../lib/format'
 import { StatTile } from '../components/StatTile'
 import { TrendChart } from '../components/TrendChart'
 import { CategoryBreakdown } from '../components/CategoryBreakdown'
+import { ChartCaption } from '../components/ChartCaption'
+import { BurnRateStrip } from '../components/BurnRateStrip'
+import { AnomalyCard } from '../components/AnomalyCard'
+import { QuickActions } from '../components/QuickActions'
+import { DashboardEmptyState } from '../components/DashboardEmptyState'
+import { DashboardErrorState } from '../components/DashboardErrorState'
 import { MarketIndicesSection } from '../components/MarketIndicesSection'
 import { AIPanel, fetchRecommendations } from '../components/AIPanel'
-import type { BudgetAdherence, Forecast, LiteracyLevel, Recommendations } from '../lib/types'
+import type {
+  BudgetAdherence,
+  Category,
+  CategoryMonthAnomaly,
+  DashboardSummary,
+  Forecast,
+  Recommendations,
+  TransactionAnomaly,
+} from '../lib/types'
+
+const REVEAL_CONTAINER = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08 } },
+}
+
+const REVEAL_ITEM = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const } },
+}
 
 export function DashboardPage() {
   const currency = useCurrency()
-  const [balance, setBalance] = useState<number | null>(null)
+  const navigate = useNavigate()
+  const reduceMotion = useReducedMotion()
+
+  const [summary, setSummary] = useState<DashboardSummary | null>(null)
+  const [summaryError, setSummaryError] = useState(false)
   const [monthlyTotals, setMonthlyTotals] = useState<Record<string, number> | null>(null)
   const [categoryBreakdown, setCategoryBreakdown] = useState<Record<string, number> | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
   const [forecast, setForecast] = useState<Forecast | null>(null)
   const [adherence, setAdherence] = useState<BudgetAdherence[] | null>(null)
+  const [txnAnomalies, setTxnAnomalies] = useState<TransactionAnomaly[]>([])
+  const [categoryAnomalies, setCategoryAnomalies] = useState<CategoryMonthAnomaly[]>([])
   const [recommendations, setRecommendations] = useState<Recommendations | null>(null)
   const [aiLoading, setAiLoading] = useState(true)
-  const [literacyLevel, setLiteracyLevel] = useState<LiteracyLevel | null>(null)
+  const [loadToken, setLoadToken] = useState(0)
 
   useEffect(() => {
-    api.get('/analysis/balance').then((res) => setBalance(res.data.balance_minor))
-    api.get('/analysis/monthly-totals').then((res) => setMonthlyTotals(res.data))
-    api.get('/forecasts/latest').then((res) => setForecast(res.data))
-    api.get('/analysis/budget-adherence').then((res) => setAdherence(res.data))
-    api.get('/api/onboarding/profile').then((res) => setLiteracyLevel(res.data.literacy_level))
+    let cancelled = false
+    setSummaryError(false)
+
+    api
+      .get<DashboardSummary>('/analysis/dashboard-summary')
+      .then((res) => !cancelled && setSummary(res.data))
+      .catch(() => !cancelled && setSummaryError(true))
+
+    api.get('/analysis/monthly-totals').then((res) => !cancelled && setMonthlyTotals(res.data))
+    api.get<Category[]>('/categories').then((res) => !cancelled && setCategories(res.data))
+    api.get('/forecasts/latest').then((res) => !cancelled && setForecast(res.data))
+    api.get('/analysis/budget-adherence').then((res) => !cancelled && setAdherence(res.data))
+    api.get('/analysis/anomalies').then((res) => {
+      if (cancelled) return
+      setTxnAnomalies(res.data.transactions ?? [])
+      setCategoryAnomalies(res.data.category_months ?? [])
+    })
     fetchRecommendations()
-      .then(setRecommendations)
-      .finally(() => setAiLoading(false))
-  }, [])
+      .then((data) => !cancelled && setRecommendations(data))
+      .finally(() => !cancelled && setAiLoading(false))
+
+    return () => {
+      cancelled = true
+    }
+  }, [loadToken])
 
   const months = monthlyTotals ? Object.keys(monthlyTotals).sort() : []
   const latestMonth = months[months.length - 1]
-  const thisMonthSpend = latestMonth ? monthlyTotals![latestMonth] : null
 
   // Category breakdown depends on knowing the latest month first, so it's
   // fetched once monthlyTotals resolves rather than in the initial batch.
@@ -55,79 +102,183 @@ export function DashboardPage() {
     }
   }
 
-  const statTiles = (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-      <StatTile label="All-time balance" value={balance} formatter={(n) => formatMoney(n, currency)} tone="accent" />
-      <StatTile label="This month's spend" value={thisMonthSpend} formatter={(n) => formatMoney(n, currency)} />
-      <StatTile
-        label="Next month forecast"
-        value={forecast?.predicted_total_minor ?? null}
-        formatter={(n) => formatMoney(n, currency)}
-        delta={
-          forecast && thisMonthSpend
-            ? { pct: ((forecast.predicted_total_minor - thisMonthSpend) / thisMonthSpend) * 100, label: 'vs this month' }
-            : null
-        }
-      />
-    </div>
-  )
+  function goToCategory(category: string) {
+    const match = categories.find((c) => c.name === category)
+    navigate(match ? `/transactions?category_id=${match.id}` : '/transactions')
+  }
 
-  const overBudgetBanner = overBudget.length > 0 && (
-    <motion.div
-      initial={{ opacity: 0, y: -4 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="rounded-xl border border-[var(--red)]/20 bg-[var(--red-soft)] px-4 py-3 text-sm text-[var(--red)]"
-    >
-      Over budget in {overBudget.map((b) => b.category).join(', ')} this month.
-    </motion.div>
-  )
+  const daysInMonth = useMemo(() => {
+    if (!summary) return 30
+    const [year, month] = summary.spend_to_date.current_month.split('-').map(Number)
+    return new Date(year, month, 0).getDate()
+  }, [summary])
 
-  const chartsRow = (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-      <div className="card-lifted p-6 lg:col-span-2">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-base font-semibold">Spending trend</h2>
-          {forecast?.is_low_confidence && (
-            <span className="rounded-full bg-[var(--amber-soft)] px-2 py-0.5 text-[10px] font-semibold uppercase text-[var(--amber)]">
-              Low-confidence forecast
-            </span>
-          )}
-        </div>
-        <TrendChart monthlyTotals={monthlyTotals} forecast={forecast} currency={currency} />
-      </div>
+  const budgetLimitMinor =
+    summary && summary.remaining_budget.total_limit_minor > 0 ? summary.remaining_budget.total_limit_minor : null
 
-      <div className="card-lifted p-6">
-        <h2 className="font-display mb-4 text-base font-semibold">By category</h2>
-        <CategoryBreakdown data={categoryBreakdown} currency={currency} />
-      </div>
-    </div>
-  )
+  const spendCaption = useMemo(() => {
+    if (!summary) return null
+    const { spend_to_date_minor, days_elapsed, pct_change, current_month } = summary.spend_to_date
+    const monthLabel = formatMonth(current_month)
+    const spendText = formatMoney(spend_to_date_minor, currency)
+    if (pct_change === null) {
+      return `You've spent ${spendText} in the first ${days_elapsed} days of ${monthLabel}.`
+    }
+    const direction = pct_change >= 0 ? 'more' : 'less'
+    return `You've spent ${spendText} in the first ${days_elapsed} days of ${monthLabel} — ${Math.abs(pct_change).toFixed(0)}% ${direction} than the same point last month.`
+  }, [summary, currency])
 
-  const marketsSection = <MarketIndicesSection />
-  const aiPanel = <AIPanel data={recommendations} isLoading={aiLoading} onRefresh={handleAiRefresh} />
+  const paceCaption = useMemo(() => {
+    if (!summary) return null
+    const projected = formatMoney(summary.projected_month_end_spend_minor, currency)
+    if (budgetLimitMinor != null) {
+      const overBy = summary.projected_month_end_spend_minor - budgetLimitMinor
+      if (overBy > 0) {
+        return `At this pace you're on track to go ${formatMoney(overBy, currency)} over your ${formatMoney(budgetLimitMinor, currency)} budget by month end.`
+      }
+      return `At this pace you're on track to land ${formatMoney(-overBy, currency)} under your ${formatMoney(budgetLimitMinor, currency)} budget.`
+    }
+    return `At this pace you're on track to spend about ${projected} by the end of the month. Set a budget to get an on-track vs. over-budget read.`
+  }, [summary, currency, budgetLimitMinor])
 
-  // Personalization: a beginner sees plain-language advice before the raw
-  // charts (less overwhelming, advice-first); everyone else sees the data
-  // first, advice last. Same widgets, different order — no new surfaces.
-  const isBeginner = literacyLevel === 'beginner'
+  const topCategoryCaption = useMemo(() => {
+    if (!summary || summary.top_categories.length === 0) return null
+    const top = summary.top_categories[0]
+    return `${top.category} is your biggest expense so far this month, at ${top.pct_of_total.toFixed(0)}% of total spend.`
+  }, [summary])
+
+  const combinedAnomalies = useMemo(() => {
+    const fromTxns = txnAnomalies.map((a) => ({
+      key: `txn-${a.date}-${a.category}`,
+      title: `Unusual ${a.category} transaction`,
+      description: `on ${formatDate(a.date)}`,
+      amountMinor: a.amount_minor,
+      zScore: a.z_score,
+    }))
+    const fromCategories = categoryAnomalies.map((a) => ({
+      key: `cat-${a.month}-${a.category}`,
+      title: `${a.category} spent more than usual`,
+      description: `in ${formatMonth(a.month)}`,
+      amountMinor: -a.spend_minor,
+      zScore: a.z_score,
+    }))
+    return [...fromTxns, ...fromCategories].sort((a, b) => b.zScore - a.zScore).slice(0, 4)
+  }, [txnAnomalies, categoryAnomalies])
+
+  const hasNoData = monthlyTotals !== null && Object.keys(monthlyTotals).length === 0
+
+  if (summaryError) {
+    return <DashboardErrorState onRetry={() => setLoadToken((t) => t + 1)} />
+  }
+
+  const Container = reduceMotion ? 'div' : motion.div
+  const Item = reduceMotion ? 'div' : motion.div
+  const containerProps = reduceMotion ? {} : { variants: REVEAL_CONTAINER, initial: 'hidden', animate: 'show' }
+  const itemProps = reduceMotion ? {} : { variants: REVEAL_ITEM }
 
   return (
-    <div className="space-y-8">
-      {statTiles}
-      {overBudgetBanner}
-      {isBeginner ? (
-        <>
-          {aiPanel}
-          {chartsRow}
-          {marketsSection}
-        </>
+    <Container className="space-y-8" {...containerProps}>
+      <Item {...itemProps}>
+        <QuickActions />
+      </Item>
+
+      {hasNoData ? (
+        <Item {...itemProps}>
+          <DashboardEmptyState />
+        </Item>
       ) : (
         <>
-          {chartsRow}
-          {marketsSection}
-          {aiPanel}
+          <Item {...itemProps} className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <StatTile
+              label="Spent so far this month"
+              value={summary?.spend_to_date.spend_to_date_minor ?? null}
+              formatter={(n) => formatMoney(n, currency)}
+              tone="accent"
+              delta={
+                summary && summary.spend_to_date.pct_change !== null
+                  ? { pct: summary.spend_to_date.pct_change, label: 'vs same point last month' }
+                  : null
+              }
+            />
+            <StatTile
+              label="Projected month-end spend"
+              value={summary?.projected_month_end_spend_minor ?? null}
+              formatter={(n) => formatMoney(n, currency)}
+            />
+            <StatTile
+              label={budgetLimitMinor != null ? 'Remaining budget' : 'Next month forecast'}
+              value={budgetLimitMinor != null ? (summary?.remaining_budget.remaining_minor ?? null) : (forecast?.predicted_total_minor ?? null)}
+              formatter={(n) => formatMoney(n, currency)}
+            />
+          </Item>
+
+          <Item {...itemProps} className="card-lifted p-6">
+            <h2 className="font-heading text-base font-semibold text-heading">Burn rate this month</h2>
+            <div className="mt-4">
+              <BurnRateStrip dailyBurn={summary?.daily_burn ?? null} daysInMonth={daysInMonth} budgetLimitMinor={budgetLimitMinor} currency={currency} />
+            </div>
+            <ChartCaption>
+              {spendCaption} {paceCaption}
+            </ChartCaption>
+          </Item>
+
+          {overBudget.length > 0 && (
+            <Item
+              {...itemProps}
+              className="rounded-xl border border-[var(--color-overspend)]/20 bg-[var(--color-overspend-soft)] px-4 py-3 text-sm text-[var(--color-overspend-ink)]"
+            >
+              Over budget in {overBudget.map((b) => b.category).join(', ')} this month.
+            </Item>
+          )}
+
+          <Item {...itemProps}>
+            <AIPanel data={recommendations} isLoading={aiLoading} onRefresh={handleAiRefresh} />
+          </Item>
+
+          {combinedAnomalies.length > 0 && (
+            <Item {...itemProps}>
+              <h2 className="font-heading mb-3 text-base font-semibold text-heading">Worth a look</h2>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {combinedAnomalies.map((a) => (
+                  <AnomalyCard
+                    key={a.key}
+                    title={a.title}
+                    description={a.description}
+                    amountMinor={a.amountMinor}
+                    currency={currency}
+                    severity={a.zScore >= 3 ? 'high' : 'medium'}
+                  />
+                ))}
+              </div>
+            </Item>
+          )}
+
+          <Item {...itemProps} className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="card-lifted p-6 lg:col-span-2">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="font-heading text-base font-semibold text-heading">Spending trend</h2>
+                {forecast?.is_low_confidence && (
+                  <span className="rounded-full bg-[var(--color-warning-soft)] px-2 py-0.5 text-[10px] font-semibold uppercase text-[var(--color-warning-ink)]">
+                    Low-confidence forecast
+                  </span>
+                )}
+              </div>
+              <TrendChart monthlyTotals={monthlyTotals} forecast={forecast} currency={currency} />
+              <ChartCaption>Monthly total spend, with next month's forecast range shaded at the right.</ChartCaption>
+            </div>
+
+            <div className="card-lifted p-6">
+              <h2 className="font-heading mb-4 text-base font-semibold text-heading">By category</h2>
+              <CategoryBreakdown data={categoryBreakdown} currency={currency} onCategoryClick={goToCategory} />
+              <ChartCaption>{topCategoryCaption ?? 'Tap a category to see its transactions.'}</ChartCaption>
+            </div>
+          </Item>
+
+          <Item {...itemProps}>
+            <MarketIndicesSection />
+          </Item>
         </>
       )}
-    </div>
+    </Container>
   )
 }

@@ -9,6 +9,9 @@ interface FinoContextValue {
   sending: boolean
   loaded: boolean
   sendMessage: (text: string) => Promise<void>
+  panelOpen: boolean
+  openPanel: () => void
+  closePanel: () => void
 }
 
 const FinoContext = createContext<FinoContextValue | undefined>(undefined)
@@ -21,6 +24,7 @@ export function FinoProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<FinoMessage[]>([])
   const [sending, setSending] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [panelOpen, setPanelOpen] = useState(false)
   const nextLocalId = useRef(0)
 
   useEffect(() => {
@@ -86,7 +90,14 @@ export function FinoProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  return <FinoContext.Provider value={{ messages, sending, loaded, sendMessage }}>{children}</FinoContext.Provider>
+  const openPanel = useCallback(() => setPanelOpen(true), [])
+  const closePanel = useCallback(() => setPanelOpen(false), [])
+
+  return (
+    <FinoContext.Provider value={{ messages, sending, loaded, sendMessage, panelOpen, openPanel, closePanel }}>
+      {children}
+    </FinoContext.Provider>
+  )
 }
 
 export function useFino() {

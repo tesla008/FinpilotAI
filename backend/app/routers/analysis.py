@@ -1,8 +1,18 @@
+from dataclasses import replace
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.analysis.anomalies import detect_category_month_anomalies, detect_transaction_anomalies
 from app.analysis.budgets import budget_adherence
+from app.analysis.dashboard import (
+    daily_burn_series,
+    projected_month_end_spend,
+    remaining_budget,
+    spend_to_date_comparison,
+    top_categories,
+)
 from app.analysis.monthly import category_breakdown, monthly_category_breakdown, monthly_spend_totals
 from app.analysis.savings import monthly_savings_rate
 from app.analysis.trends import detect_trends
@@ -74,3 +84,37 @@ def get_budget_adherence(
     )
     budgets_minor = {cat.name: b.monthly_limit_minor for b, cat in budget_rows}
     return budget_adherence(records, budgets_minor, month=month)
+
+
+@router.get("/dashboard-summary")
+def get_dashboard_summary(db: Session = Depends(get_db), current_user: User = Depends(get_effective_user)):
+    """Everything the dashboard's above-the-fold "four questions" need in one
+    call: pace vs. last month, the daily burn-rate series, remaining budget
+    (with a naive month-end projection for the on-track read), and the
+    top-3-plus-Other category split."""
+    records = load_records(db, current_user.id)
+    as_of = datetime.now(timezone.utc).date()
+
+    budget_rows = (
+        db.query(Budget, Category)
+        .join(Category, Budget.category_id == Category.id)
+        .filter(Budget.user_id == current_user.id)
+        .all()
+    )
+    budgets_minor = {cat.name: b.monthly_limit_minor for b, cat in budget_rows}
+
+    spend_to_date = spend_to_date_comparison(records, as_of)
+    if spend_to_date.pct_change == float("inf"):
+        # json.dumps renders inf as the bare token `Infinity`, which is not
+        # valid JSON and breaks response.json() in the browser — same
+        # sanitization ai/summary.py already does at its API boundary.
+        spend_to_date = replace(spend_to_date, pct_change=None)
+
+    return {
+        "as_of": as_of.isoformat(),
+        "spend_to_date": spend_to_date,
+        "daily_burn": daily_burn_series(records, as_of),
+        "projected_month_end_spend_minor": projected_month_end_spend(records, as_of),
+        "remaining_budget": remaining_budget(records, budgets_minor),
+        "top_categories": top_categories(records, top_n=3),
+    }

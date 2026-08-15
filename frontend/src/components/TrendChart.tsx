@@ -32,10 +32,10 @@ export function TrendChart({ monthlyTotals, forecast, currency }: TrendChartProp
   return (
     <ResponsiveContainer width="100%" height={300}>
       <ComposedChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#eceef1" vertical={false} />
-        <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#8a93a0' }} axisLine={false} tickLine={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-hairline)" vertical={false} />
+        <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'var(--color-muted)' }} axisLine={false} tickLine={false} />
         <YAxis
-          tick={{ fontSize: 12, fill: '#8a93a0' }}
+          tick={{ fontSize: 12, fill: 'var(--color-muted)' }}
           axisLine={false}
           tickLine={false}
           tickFormatter={(v: number) => formatMoney(v * 100, currency)}
@@ -43,12 +43,17 @@ export function TrendChart({ monthlyTotals, forecast, currency }: TrendChartProp
         />
         <Tooltip
           formatter={(value) => formatMoney(Number(value ?? 0) * 100, currency)}
-          contentStyle={{ borderRadius: 12, border: '1px solid #eceef1', boxShadow: '0 8px 24px rgba(16,24,40,0.08)' }}
+          contentStyle={{
+            borderRadius: 12,
+            border: '1px solid var(--color-border)',
+            boxShadow: 'var(--shadow-card-sm)',
+            background: 'var(--color-card)',
+          }}
         />
         <Area
           dataKey="band"
           stroke="none"
-          fill="#047857"
+          fill="var(--color-primary)"
           fillOpacity={0.12}
           isAnimationActive
           connectNulls
@@ -56,9 +61,9 @@ export function TrendChart({ monthlyTotals, forecast, currency }: TrendChartProp
         <Line
           type="monotone"
           dataKey="actual"
-          stroke="#047857"
+          stroke="var(--color-primary)"
           strokeWidth={2.5}
-          dot={{ r: 3, fill: '#047857' }}
+          dot={{ r: 3, fill: 'var(--color-primary)' }}
           activeDot={{ r: 5 }}
           isAnimationActive
           animationDuration={700}
