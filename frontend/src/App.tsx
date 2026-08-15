@@ -20,6 +20,7 @@ import { GoalsPage } from './pages/GoalsPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { FinoChatPage } from './pages/FinoChatPage'
+import { HealthCheckerPage } from './pages/HealthCheckerPage'
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
                   <Route path="/forecast" element={<ForecastPage />} />
                   <Route path="/advice" element={<AdvicePage />} />
                   <Route path="/what-if" element={<WhatIfPage />} />
+                  <Route path="/health" element={<HealthCheckerPage />} />
                   <Route path="/fino" element={<FinoChatPage />} />
 
                   {/* Not part of the design references' route list, kept reachable

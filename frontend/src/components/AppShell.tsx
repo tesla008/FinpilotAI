@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { to: '/forecast', label: 'Forecast' },
   { to: '/advice', label: 'Advice' },
   { to: '/what-if', label: 'What-if' },
+  { to: '/health', label: 'Health' },
 ]
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {

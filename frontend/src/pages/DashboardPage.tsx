@@ -11,6 +11,7 @@ import { ChartCaption } from '../components/ChartCaption'
 import { BurnRateStrip } from '../components/BurnRateStrip'
 import { AnomalyCard } from '../components/AnomalyCard'
 import { QuickActions } from '../components/QuickActions'
+import { HealthScoreCard } from '../components/HealthScoreCard'
 import { DashboardEmptyState } from '../components/DashboardEmptyState'
 import { DashboardErrorState } from '../components/DashboardErrorState'
 import { MarketIndicesSection } from '../components/MarketIndicesSection'
@@ -180,6 +181,10 @@ export function DashboardPage() {
     <Container className="space-y-8" {...containerProps}>
       <Item {...itemProps}>
         <QuickActions />
+      </Item>
+
+      <Item {...itemProps}>
+        <HealthScoreCard />
       </Item>
 
       {hasNoData ? (

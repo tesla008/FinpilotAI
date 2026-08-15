@@ -241,6 +241,39 @@ export interface HorizonForecastResponse {
   accuracy: ForecastAccuracy | null
 }
 
+// --- Financial health score ---
+
+export interface HealthPillar {
+  key: string
+  label: string
+  score: number | null
+  weight: number
+  value_label: string
+  note: string
+}
+
+export interface HealthLever {
+  pillar_key: string
+  pillar_label: string
+  current_score: number
+  estimated_point_gain: number
+  note: string
+}
+
+export interface HealthTrendPoint {
+  month: string
+  score: number
+}
+
+export interface HealthScoreResponse {
+  score: number | null
+  band: string | null
+  is_provisional: boolean
+  pillars: HealthPillar[]
+  top_levers: HealthLever[]
+  trend: HealthTrendPoint[]
+}
+
 export interface DashboardSummary {
   as_of: string
   spend_to_date: SpendToDate

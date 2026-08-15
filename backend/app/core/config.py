@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     refresh_token_ttl_days: int = 30
     frontend_url: str = "http://localhost:5173"
 
+    # Feature flag for the (optional) Financial Health Checker. Purely
+    # additive: the router 404s when this is off, and nothing else in the
+    # app reads this flag — see tests/test_health_endpoint.py for the
+    # inertness proof.
+    health_checker_enabled: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:
