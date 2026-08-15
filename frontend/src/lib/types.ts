@@ -290,6 +290,7 @@ export interface AdviceInsight {
 }
 
 export type RecommendationStatus = 'pending' | 'dismissed' | 'done'
+export type AdviceHorizon = 'this_month' | 'next_3_months' | 'long_term'
 
 export interface AdviceRecommendation {
   id: string
@@ -298,6 +299,9 @@ export interface AdviceRecommendation {
   impact_inr_per_month: number
   effort: 'low' | 'medium' | 'high'
   category: 'budget' | 'save' | 'invest' | 'debt'
+  horizon: AdviceHorizon
+  linked_goal: string | null
+  goal_impact: string | null
   status: RecommendationStatus
 }
 
@@ -311,6 +315,14 @@ export interface AdviceResponse {
   insights: AdviceInsight[]
   recommendations: AdviceRecommendation[]
   questions_to_consider: string[]
+}
+
+export interface AdviceHistoryItem {
+  advice_id: string
+  generated_at: string
+  headline: string
+  health_score: number
+  is_fallback: boolean
 }
 
 export interface DashboardSummary {

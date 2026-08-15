@@ -15,5 +15,6 @@ export const DISCLAIMER_CONDENSED =
   'to market risks.'
 
 // Routes where the full text should always show rather than the condensed
-// line + expander — anywhere fund data or fund guidance is on screen.
-export const DISCLAIMER_FULL_ROUTE_PREFIXES = ['/funds', '/fino/buddy']
+// line + expander — anywhere fund data, fund guidance, or AI-generated
+// financial advice is on screen.
+export const DISCLAIMER_FULL_ROUTE_PREFIXES = ['/funds', '/fino/buddy', '/advice']

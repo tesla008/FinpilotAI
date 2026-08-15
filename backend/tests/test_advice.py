@@ -29,6 +29,9 @@ VALID_PAYLOAD = {
             "impact_inr_per_month": 1500,
             "effort": "low",
             "category": "budget",
+            "horizon": "this_month",
+            "linked_goal": None,
+            "goal_impact": None,
         }
     ],
     "questions_to_consider": ["Is your emergency fund on track?"],
@@ -104,6 +107,26 @@ def test_fallback_advice_echoes_deterministic_score_and_flags_over_budget():
     output = generate_fallback_advice(summary)
     assert output.health_score == 55
     assert any("Food" in r.action for r in output.recommendations)
+    food_rec = next(r for r in output.recommendations if "Food" in r.action)
+    assert food_rec.horizon == "this_month"
+    assert food_rec.linked_goal is None
+
+
+def test_fallback_advice_links_goal_and_sets_horizon_by_distance():
+    summary = {
+        "deterministic_health_score": {"score": 60, "band": "Stable", "is_provisional": False},
+        "trends": [],
+        "category_month_anomalies": [],
+        "budget_adherence": [],
+        "goals": [
+            {"name": "Goa trip", "target_amount": 60000, "saved_amount": 15000, "target_date": "2026-05-01", "progress_pct": 25.0}
+        ],
+        "latest_month": "2026-03",
+    }
+    output = generate_fallback_advice(summary)
+    goal_rec = next(r for r in output.recommendations if r.linked_goal == "Goa trip")
+    assert goal_rec.horizon == "next_3_months"  # 2 months from 2026-03 to 2026-05
+    assert goal_rec.goal_impact is not None
 
 
 def test_fallback_advice_uses_neutral_score_when_none_computed():
@@ -202,3 +225,27 @@ def test_recommendation_status_rejects_unknown_status(auth_client, test_user, db
 
     response = auth_client.patch(f"/api/advice/recommendations/{rec_id}/status", json={"status": "archived"})
     assert response.status_code == 400
+
+
+def test_recommendation_includes_horizon_and_goal_fields(auth_client, test_user, db_session, monkeypatch):
+    _seed(db_session, test_user.id)
+    monkeypatch.setattr("app.ai.advice._generate", lambda summary: AdviceOutput.model_validate(VALID_PAYLOAD))
+
+    body = auth_client.post("/api/advice").json()
+    rec = body["recommendations"][0]
+    assert rec["horizon"] == "this_month"
+    assert rec["linked_goal"] is None
+    assert rec["goal_impact"] is None
+
+
+def test_advice_history_returns_most_recent_first(auth_client, test_user, db_session, monkeypatch):
+    _seed(db_session, test_user.id)
+    monkeypatch.setattr("app.ai.advice._generate", lambda summary: AdviceOutput.model_validate(VALID_PAYLOAD))
+
+    first_id = auth_client.post("/api/advice").json()["advice_id"]
+    second_id = auth_client.post("/api/advice", params={"force_refresh": True}).json()["advice_id"]
+    assert first_id != second_id
+
+    history = auth_client.get("/api/advice/history").json()
+    assert history[0]["advice_id"] == second_id
+    assert any(h["advice_id"] == first_id for h in history)

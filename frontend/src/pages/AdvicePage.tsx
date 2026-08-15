@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useCurrency } from '../lib/currency'
+import { formatDate, formatMoney } from '../lib/format'
+import { useFino } from '../context/FinoContext'
 import { Skeleton } from '../components/Skeleton'
 import { AdviceRecommendationCard } from '../components/AdviceRecommendationCard'
-import type { AdviceResponse, Category, RecommendationStatus } from '../lib/types'
+import type { AdviceHistoryItem, AdviceHorizon, AdviceRecommendation, AdviceResponse, Category, RecommendationStatus } from '../lib/types'
 
 const SEVERITY_STYLE: Record<string, { border: string; text: string }> = {
   urgent: { border: 'var(--color-overspend)', text: 'var(--color-overspend-ink)' },
@@ -12,16 +14,31 @@ const SEVERITY_STYLE: Record<string, { border: string; text: string }> = {
   info: { border: 'var(--color-border)', text: 'var(--color-secondary)' },
 }
 
+const EFFORT_WEIGHT: Record<string, number> = { low: 1, medium: 2, high: 3 }
+
+const HORIZON_GROUPS: { key: AdviceHorizon; label: string }[] = [
+  { key: 'this_month', label: 'This month' },
+  { key: 'next_3_months', label: 'Next 3 months' },
+  { key: 'long_term', label: 'Long term' },
+]
+
+function priorityScore(r: AdviceRecommendation): number {
+  return r.impact_inr_per_month / (EFFORT_WEIGHT[r.effort] ?? 2)
+}
+
 export function AdvicePage() {
   const currency = useCurrency()
   const navigate = useNavigate()
+  const { openPanel, sendMessage } = useFino()
   const [data, setData] = useState<AdviceResponse | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
+  const [history, setHistory] = useState<AdviceHistoryItem[]>([])
   const [error, setError] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     api.get<Category[]>('/categories').then((res) => setCategories(res.data))
+    loadHistory()
     load(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -31,9 +48,14 @@ export function AdvicePage() {
     try {
       const res = await api.post<AdviceResponse>('/api/advice', null, { params: { force_refresh: forceRefresh } })
       setData(res.data)
+      if (!res.data.cached) loadHistory()
     } catch {
       setError(true)
     }
+  }
+
+  function loadHistory() {
+    api.get<AdviceHistoryItem[]>('/api/advice/history').then((res) => setHistory(res.data)).catch(() => {})
   }
 
   async function handleRefresh() {
@@ -57,6 +79,11 @@ export function AdvicePage() {
     }
   }
 
+  function handleAskFino(rec: AdviceRecommendation) {
+    openPanel()
+    sendMessage(`Why do you recommend this? "${rec.action}" — ${rec.why}`)
+  }
+
   const evidenceLink = useMemo(() => {
     return (metric: string, period: string) => {
       const match = categories.find((c) => metric.toLowerCase().includes(c.name.toLowerCase()))
@@ -72,6 +99,22 @@ export function AdvicePage() {
       return `/transactions?${params.toString()}`
     }
   }, [categories])
+
+  const topPriorityId = useMemo(() => {
+    const pending = (data?.recommendations ?? []).filter((r) => r.status === 'pending')
+    if (pending.length === 0) return null
+    return pending.reduce((best, r) => (priorityScore(r) > priorityScore(best) ? r : best)).id
+  }, [data])
+
+  const topPriorityRec = data?.recommendations.find((r) => r.id === topPriorityId) ?? null
+
+  const groupedRecommendations = useMemo(() => {
+    const recs = data?.recommendations ?? []
+    return HORIZON_GROUPS.map((group) => ({
+      ...group,
+      items: recs.filter((r) => r.horizon === group.key).sort((a, b) => priorityScore(b) - priorityScore(a)),
+    })).filter((group) => group.items.length > 0)
+  }, [data])
 
   if (error) {
     return (
@@ -99,7 +142,7 @@ export function AdvicePage() {
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-heading text-h2 font-bold text-heading">AI Advisor</h1>
-          <p className="mt-1.5 text-sm text-muted">Recommendations grounded in your actual numbers</p>
+          <p className="mt-1.5 text-sm text-muted">Recommendations grounded in your actual numbers — advisory only, see disclaimer below.</p>
         </div>
         <button
           onClick={handleRefresh}
@@ -155,26 +198,66 @@ export function AdvicePage() {
       )}
 
       <div className="mb-8">
-        <h2 className="font-heading mb-4 text-base font-semibold text-heading">Recommendations</h2>
+        <h2 className="font-heading mb-1 text-base font-semibold text-heading">Recommendations</h2>
+        {topPriorityRec && (
+          <p className="mb-4 text-xs text-muted">
+            <span className="font-medium text-primary">"{topPriorityRec.action}"</span> is prioritized first — the highest estimated impact
+            ({formatMoney(Math.round(topPriorityRec.impact_inr_per_month * 100), currency)}/mo) for its effort level, of everything not yet
+            acted on.
+          </p>
+        )}
         {data.recommendations.length === 0 ? (
           <p className="card p-6 text-sm text-muted">Not enough data yet for specific recommendations — add more transactions to unlock these.</p>
         ) : (
-          <div className="flex flex-col gap-3">
-            {data.recommendations.map((rec) => (
-              <AdviceRecommendationCard key={rec.id} recommendation={rec} currency={currency} onStatusChange={handleStatusChange} />
+          <div className="space-y-6">
+            {groupedRecommendations.map((group) => (
+              <div key={group.key}>
+                <h3 className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted">{group.label}</h3>
+                <div className="flex flex-col gap-3">
+                  {group.items.map((rec) => (
+                    <AdviceRecommendationCard
+                      key={rec.id}
+                      recommendation={rec}
+                      currency={currency}
+                      onStatusChange={handleStatusChange}
+                      onAskFino={handleAskFino}
+                      isTopPriority={rec.id === topPriorityId}
+                    />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         )}
       </div>
 
       {data.questions_to_consider.length > 0 && (
-        <div className="card p-6">
+        <div className="mb-8 card p-6">
           <h2 className="font-heading mb-3 text-base font-semibold text-heading">Questions worth thinking about</h2>
           <ul className="space-y-1.5">
             {data.questions_to_consider.map((q, i) => (
               <li key={i} className="flex gap-2 text-sm text-secondary">
                 <span className="text-primary">•</span>
                 {q}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {history.length > 1 && (
+        <div className="card p-6">
+          <h2 className="font-heading mb-3 text-base font-semibold text-heading">History</h2>
+          <ul className="space-y-2.5">
+            {history.map((h) => (
+              <li key={h.advice_id} className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="min-w-0 flex-1 truncate text-secondary">
+                  {h.headline}
+                  {h.is_fallback && <span className="ml-1.5 text-[10px] uppercase text-muted">(fallback)</span>}
+                </span>
+                <span className="flex-none text-xs text-muted">
+                  {formatDate(h.generated_at.slice(0, 10))} · score {h.health_score}
+                </span>
               </li>
             ))}
           </ul>

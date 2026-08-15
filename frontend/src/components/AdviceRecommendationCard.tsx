@@ -8,13 +8,21 @@ interface AdviceRecommendationCardProps {
   recommendation: AdviceRecommendation
   currency: string
   onStatusChange: (id: string, status: 'pending' | 'dismissed' | 'done') => void
+  onAskFino: (recommendation: AdviceRecommendation) => void
+  isTopPriority?: boolean
 }
 
 /** One recommendation from POST /api/advice — action, reason, and the
  * estimated monthly rupee impact, with dismiss/done controls that persist
  * server-side. Marked with the AI accent so it's never mistaken for a
  * fact the app itself asserts. */
-export function AdviceRecommendationCard({ recommendation, currency, onStatusChange }: AdviceRecommendationCardProps) {
+export function AdviceRecommendationCard({
+  recommendation,
+  currency,
+  onStatusChange,
+  onAskFino,
+  isTopPriority,
+}: AdviceRecommendationCardProps) {
   const isInactive = recommendation.status !== 'pending'
 
   return (
@@ -32,6 +40,11 @@ export function AdviceRecommendationCard({ recommendation, currency, onStatusCha
             <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: 'var(--color-ai)', color: 'white' }}>
               AI
             </span>
+            {isTopPriority && (
+              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white" style={{ background: 'var(--color-primary)' }}>
+                Top priority
+              </span>
+            )}
             <span className="text-[10px] font-medium uppercase tracking-wide text-muted">{CATEGORY_LABEL[recommendation.category]}</span>
             <span className="text-[10px] text-muted">·</span>
             <span className="text-[10px] font-medium text-muted">{EFFORT_LABEL[recommendation.effort]}</span>
@@ -40,6 +53,12 @@ export function AdviceRecommendationCard({ recommendation, currency, onStatusCha
             {recommendation.action}
           </p>
           <p className="mt-1 text-xs leading-relaxed text-secondary">{recommendation.why}</p>
+          {recommendation.linked_goal && (
+            <p className="mt-1.5 text-xs font-medium" style={{ color: 'var(--color-positive-ink)' }}>
+              → {recommendation.linked_goal}
+              {recommendation.goal_impact ? `: ${recommendation.goal_impact}` : ''}
+            </p>
+          )}
         </div>
         <div className="flex-none text-right">
           <p className="money text-sm font-semibold" style={{ color: 'var(--color-ai-ink)' }}>
@@ -69,6 +88,9 @@ export function AdviceRecommendationCard({ recommendation, currency, onStatusCha
             </button>
           </>
         )}
+        <button onClick={() => onAskFino(recommendation)} className="ml-auto text-xs font-medium text-primary hover:underline">
+          Why this?
+        </button>
       </div>
     </div>
   )

@@ -2,7 +2,27 @@
 call fails or returns malformed output twice in a row, so the advice page
 is never blank. Built entirely from the same summary dict the AI would
 have received, using simple rules rather than any model call."""
+from datetime import date
+
 from app.ai.advice_schema import AdviceOutput, EvidenceOut, InsightOut, RecommendationOut
+
+
+def _months_until(target_date_str: str, reference_month_str: str | None) -> int:
+    target = date.fromisoformat(target_date_str)
+    if reference_month_str:
+        ref_year, ref_month = (int(x) for x in reference_month_str.split("-"))
+        reference = date(ref_year, ref_month, 1)
+    else:
+        reference = date.today().replace(day=1)
+    return max(0, (target.year - reference.year) * 12 + (target.month - reference.month))
+
+
+def _horizon_for_months(months: int) -> str:
+    if months <= 1:
+        return "this_month"
+    if months <= 3:
+        return "next_3_months"
+    return "long_term"
 
 
 def generate_fallback_advice(summary: dict) -> AdviceOutput:
@@ -38,6 +58,8 @@ def generate_fallback_advice(summary: dict) -> AdviceOutput:
             )
         )
 
+    latest_month = summary.get("latest_month")
+
     recommendations: list[RecommendationOut] = []
     for b in summary.get("budget_adherence", []):
         if b.get("is_over"):
@@ -49,11 +71,13 @@ def generate_fallback_advice(summary: dict) -> AdviceOutput:
                     impact_inr_per_month=over_by,
                     effort="medium",
                     category="budget",
+                    horizon="this_month",
                 )
             )
 
     for g in summary.get("goals", []):
         if g.get("progress_pct", 100) < 50:
+            months_left = _months_until(g["target_date"], latest_month)
             recommendations.append(
                 RecommendationOut(
                     action=f"Increase contributions toward '{g['name']}'",
@@ -61,6 +85,9 @@ def generate_fallback_advice(summary: dict) -> AdviceOutput:
                     impact_inr_per_month=round((g["target_amount"] - g["saved_amount"]) / 6, 2),
                     effort="medium",
                     category="save",
+                    horizon=_horizon_for_months(months_left),
+                    linked_goal=g["name"],
+                    goal_impact=f"{g['progress_pct']}% funded, {months_left} months to target date",
                 )
             )
 

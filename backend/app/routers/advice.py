@@ -8,11 +8,32 @@ from app.core.rate_limit import enforce_ip_rate_limit
 from app.core.security import get_effective_user
 from app.models.advice import Advice, AdviceActionState
 from app.models.user import User
-from app.schemas.advice import AdviceApiResponse, RecommendationActionIn, RecommendationApiOut
+from app.schemas.advice import (
+    AdviceApiResponse,
+    AdviceHistoryItem,
+    RecommendationActionIn,
+    RecommendationApiOut,
+)
 
 router = APIRouter(prefix="/api/advice", tags=["advice"])
 
 VALID_STATUSES = {"pending", "dismissed", "done"}
+HISTORY_LIMIT = 10
+
+
+def _recommendation_out(advice_id: str, index: int, r: dict, status: str) -> RecommendationApiOut:
+    return RecommendationApiOut(
+        id=f"{advice_id}:{index}",
+        action=r["action"],
+        why=r["why"],
+        impact_inr_per_month=r["impact_inr_per_month"],
+        effort=r["effort"],
+        category=r["category"],
+        horizon=r["horizon"],
+        linked_goal=r.get("linked_goal"),
+        goal_impact=r.get("goal_impact"),
+        status=status,
+    )
 
 
 def _serialize(advice: Advice, db: Session, was_cached: bool) -> AdviceApiResponse:
@@ -22,15 +43,7 @@ def _serialize(advice: Advice, db: Session, was_cached: bool) -> AdviceApiRespon
         for s in db.query(AdviceActionState).filter(AdviceActionState.advice_id == advice.id).all()
     }
     recommendations = [
-        RecommendationApiOut(
-            id=f"{advice.id}:{i}",
-            action=r["action"],
-            why=r["why"],
-            impact_inr_per_month=r["impact_inr_per_month"],
-            effort=r["effort"],
-            category=r["category"],
-            status=states.get(i, "pending"),
-        )
+        _recommendation_out(advice.id, i, r, states.get(i, "pending"))
         for i, r in enumerate(output.get("recommendations", []))
     ]
     return AdviceApiResponse(
@@ -59,6 +72,29 @@ def post_advice(
 
     advice, was_cached = get_advice(db, current_user.id, force_refresh=force_refresh)
     return _serialize(advice, db, was_cached)
+
+
+@router.get("/history", response_model=list[AdviceHistoryItem])
+def get_advice_history(db: Session = Depends(get_db), current_user: User = Depends(get_effective_user)):
+    """A simple record of past advice generations — lets the user see how
+    the headline/score changed over time, not just the current one."""
+    rows = (
+        db.query(Advice)
+        .filter(Advice.user_id == current_user.id)
+        .order_by(Advice.generated_at.desc())
+        .limit(HISTORY_LIMIT)
+        .all()
+    )
+    return [
+        AdviceHistoryItem(
+            advice_id=row.id,
+            generated_at=row.generated_at.isoformat(),
+            headline=row.output["headline"],
+            health_score=row.output["health_score"],
+            is_fallback=row.is_fallback,
+        )
+        for row in rows
+    ]
 
 
 @router.patch("/recommendations/{rec_id}/status", response_model=RecommendationApiOut)
@@ -101,12 +137,4 @@ def set_recommendation_status(
         db.commit()
 
     r = advice.output["recommendations"][index]
-    return RecommendationApiOut(
-        id=rec_id,
-        action=r["action"],
-        why=r["why"],
-        impact_inr_per_month=r["impact_inr_per_month"],
-        effort=r["effort"],
-        category=r["category"],
-        status=body.status,
-    )
+    return _recommendation_out(advice_id, index, r, body.status)

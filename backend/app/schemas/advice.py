@@ -10,6 +10,9 @@ class RecommendationApiOut(BaseModel):
     impact_inr_per_month: float
     effort: str
     category: str
+    horizon: str
+    linked_goal: str | None
+    goal_impact: str | None
     status: str  # "pending" | "dismissed" | "done"
 
 
@@ -23,6 +26,14 @@ class AdviceApiResponse(BaseModel):
     insights: list[InsightOut]
     recommendations: list[RecommendationApiOut]
     questions_to_consider: list[str]
+
+
+class AdviceHistoryItem(BaseModel):
+    advice_id: str
+    generated_at: str
+    headline: str
+    health_score: int
+    is_fallback: bool
 
 
 class RecommendationActionIn(BaseModel):
