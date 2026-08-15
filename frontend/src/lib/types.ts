@@ -208,6 +208,39 @@ export interface CategorySlice {
   pct_of_total: number
 }
 
+// --- Forecast horizon ---
+
+export interface ForecastMonthPoint {
+  month: string
+  predicted_minor: number
+  low_minor: number
+  high_minor: number
+}
+
+export interface CategoryDriver {
+  category: string
+  current_month_minor: number
+  predicted_next_month_minor: number
+  delta_minor: number
+}
+
+export interface ForecastAccuracy {
+  month: string
+  predicted_minor: number
+  actual_minor: number
+  error_minor: number
+  error_pct: number | null
+}
+
+export interface HorizonForecastResponse {
+  months: ForecastMonthPoint[]
+  model_used: string
+  is_low_confidence: boolean
+  history_months: number
+  category_drivers: CategoryDriver[]
+  accuracy: ForecastAccuracy | null
+}
+
 export interface DashboardSummary {
   as_of: string
   spend_to_date: SpendToDate

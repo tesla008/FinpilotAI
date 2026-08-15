@@ -59,6 +59,36 @@ def run_prophet(series: list[tuple[str, int]]) -> PointForecast:
     )
 
 
+def run_prophet_multi(series: list[tuple[str, int]], periods: int) -> list[PointForecast]:
+    """Same fit as run_prophet, but returns one PointForecast per future month
+    up to `periods` months out (a single Prophet fit, not one per horizon
+    length) — powers the forecast page's 1/3/6-month horizon control."""
+    from prophet import Prophet
+
+    df = _series_to_df(series)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model = Prophet(
+            yearly_seasonality=False,
+            weekly_seasonality=False,
+            daily_seasonality=False,
+            interval_width=0.8,
+        )
+        model.fit(df)
+        future = model.make_future_dataframe(periods=periods, freq="MS")
+        forecast = model.predict(future)
+
+    future_rows = forecast.tail(periods)
+    return [
+        PointForecast(
+            predicted=max(0.0, float(row.yhat)),
+            lower=max(0.0, float(row.yhat_lower)),
+            upper=max(0.0, float(row.yhat_upper)),
+        )
+        for row in future_rows.itertuples()
+    ]
+
+
 def run_arima(series: list[tuple[str, int]]) -> PointForecast | None:
     from statsmodels.tsa.arima.model import ARIMA
 

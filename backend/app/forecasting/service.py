@@ -1,7 +1,15 @@
 from dataclasses import dataclass
 
 from app.forecasting import models
-from app.forecasting.models import COLD_START_MIN_MONTHS, PointForecast, average_fallback, backtest_error, run_arima, run_prophet
+from app.forecasting.models import (
+    COLD_START_MIN_MONTHS,
+    PointForecast,
+    average_fallback,
+    backtest_error,
+    run_arima,
+    run_prophet,
+    run_prophet_multi,
+)
 
 
 @dataclass(frozen=True)
@@ -60,4 +68,32 @@ def forecast_series(series: list[tuple[str, int]]) -> ForecastPiece:
         benchmark_model=benchmark_model,
         benchmark_mae=benchmark_mae,
         benchmark_mape=benchmark_mape,
+    )
+
+
+@dataclass(frozen=True)
+class HorizonPoint:
+    predicted_minor: int
+    low_minor: int
+    high_minor: int
+
+
+def forecast_horizon(series: list[tuple[str, int]], periods: int) -> tuple[list[HorizonPoint], str, bool]:
+    """One point per future month, `periods` months out. Returns
+    (points, model_used, is_low_confidence) — a single flag for the whole
+    horizon rather than per-point, since confidence is a property of how
+    much history went into the fit, not of which future month it is."""
+    if len(series) == 0:
+        return [HorizonPoint(0, 0, 0) for _ in range(periods)], "average_fallback", True
+
+    if len(series) < COLD_START_MIN_MONTHS:
+        point = average_fallback(series)
+        flat = HorizonPoint(round(point.predicted), round(point.lower), round(point.upper))
+        return [flat for _ in range(periods)], "average_fallback", True
+
+    points = run_prophet_multi(series, periods)
+    return (
+        [HorizonPoint(round(p.predicted), round(p.lower), round(p.upper)) for p in points],
+        "prophet",
+        len(series) < models.BACKTEST_MIN_MONTHS,
     )

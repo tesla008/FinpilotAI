@@ -1,4 +1,4 @@
-from app.forecasting.service import forecast_series
+from app.forecasting.service import forecast_horizon, forecast_series
 
 
 def test_cold_start_uses_average_fallback_under_three_months():
@@ -40,3 +40,31 @@ def test_prophet_forecast_is_low_confidence_just_above_cold_start_threshold():
     assert result.model_used == "prophet"
     assert result.is_low_confidence is True
     assert result.mae is None  # not enough history to hold a month out
+
+
+def test_forecast_horizon_cold_start_repeats_flat_average():
+    series = [("2026-01", 10000), ("2026-02", 12000)]
+    points, model_used, is_low_confidence = forecast_horizon(series, periods=3)
+
+    assert model_used == "average_fallback"
+    assert is_low_confidence is True
+    assert len(points) == 3
+    assert all(p.predicted_minor == 11000 for p in points)
+
+
+def test_forecast_horizon_empty_series_returns_zeroed_points():
+    points, model_used, is_low_confidence = forecast_horizon([], periods=6)
+    assert len(points) == 6
+    assert all(p.predicted_minor == 0 for p in points)
+    assert model_used == "average_fallback"
+    assert is_low_confidence is True
+
+
+def test_forecast_horizon_prophet_path_returns_one_point_per_month():
+    series = [(f"2026-{m:02d}", 10000) for m in range(1, 6)]
+    points, model_used, is_low_confidence = forecast_horizon(series, periods=3)
+
+    assert model_used == "prophet"
+    assert len(points) == 3
+    for p in points:
+        assert p.low_minor <= p.predicted_minor <= p.high_minor
