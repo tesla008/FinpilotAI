@@ -3,6 +3,7 @@ servers in tests — verify_google_id_token is monkeypatched to return a
 canned identity, the same way the AI tests avoid calling the real Claude
 API. Everything downstream (user creation, cookie issuance, refresh
 rotation, reuse detection, logout, data scoping) is exercised for real."""
+from app.core import security
 from app.core.security import GoogleIdentity
 
 
@@ -19,6 +20,40 @@ def test_google_sign_in_creates_user_and_sets_cookies(client, monkeypatch):
     assert response.json()["email"] == "new-user@example.com"
     assert "fp_access" in response.cookies
     assert "fp_refresh" in response.cookies
+
+
+def test_auth_cookies_use_samesite_none_in_production(monkeypatch):
+    # SameSite=Lax cookies are never sent on a cross-site fetch/XHR — only a
+    # top-level navigation — which is exactly how the deployed frontend
+    # (Netlify) talks to this API (Render), on a different registrable
+    # domain. Regression test for the incident where every authenticated
+    # request after sign-in silently looked unauthenticated in production.
+    monkeypatch.setattr(security.settings, "app_env", "production")
+    from fastapi import Response
+
+    response = Response()
+    security.set_auth_cookies(response, "access-token", "refresh-token")
+    set_cookie_headers = response.headers.getlist("set-cookie")
+    assert len(set_cookie_headers) == 2
+    for header in set_cookie_headers:
+        assert "samesite=none" in header.lower()
+        assert "secure" in header.lower()
+
+
+def test_auth_cookies_use_samesite_lax_in_development(monkeypatch):
+    # Local dev is same-site (localhost:5173 -> localhost:8000), and
+    # SameSite=None requires Secure, which a plain http://localhost origin
+    # can't satisfy — Lax is correct here, not a relaxed version of prod.
+    monkeypatch.setattr(security.settings, "app_env", "development")
+    from fastapi import Response
+
+    response = Response()
+    security.set_auth_cookies(response, "access-token", "refresh-token")
+    set_cookie_headers = response.headers.getlist("set-cookie")
+    assert len(set_cookie_headers) == 2
+    for header in set_cookie_headers:
+        assert "samesite=lax" in header.lower()
+        assert "secure" not in header.lower()
 
 
 def test_google_sign_in_is_idempotent_for_returning_user(client, monkeypatch):

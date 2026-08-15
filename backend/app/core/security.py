@@ -177,13 +177,22 @@ def set_auth_cookies(response: Response, access_token: str, refresh_token: str) 
     # dev/test session, since neither the test client nor a plain
     # http://localhost dev server is an HTTPS origin.
     secure = settings.app_env != "development"
+    # SameSite=Lax only ever sends a cookie on a top-level navigation, never
+    # on a cross-site fetch/XHR — which is exactly how the frontend (Netlify)
+    # talks to this API (Render), on a different registrable domain. Without
+    # SameSite=None here, every credentialed request after the initial
+    # sign-in/demo call silently drops the cookie and looks like an
+    # unauthenticated session. None requires Secure, which is why this only
+    # flips once we're already requiring HTTPS (production); local dev stays
+    # same-site (localhost:5173 -> localhost:8000) so Lax is correct there.
+    samesite = "none" if secure else "lax"
     response.set_cookie(
         ACCESS_COOKIE_NAME,
         access_token,
         max_age=settings.access_token_ttl_minutes * 60,
         httponly=True,
         secure=secure,
-        samesite="lax",
+        samesite=samesite,
         path="/",
     )
     response.set_cookie(
@@ -192,7 +201,7 @@ def set_auth_cookies(response: Response, access_token: str, refresh_token: str) 
         max_age=settings.refresh_token_ttl_days * 24 * 60 * 60,
         httponly=True,
         secure=secure,
-        samesite="lax",
+        samesite=samesite,
         path="/",
     )
 
