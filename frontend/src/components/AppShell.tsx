@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { to: '/advice', label: 'Advice' },
   { to: '/what-if', label: 'What-if' },
   { to: '/health', label: 'Health' },
+  { to: '/scam-awareness', label: 'Scam safety' },
 ]
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {

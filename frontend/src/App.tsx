@@ -21,6 +21,7 @@ import { ReportsPage } from './pages/ReportsPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { FinoChatPage } from './pages/FinoChatPage'
 import { HealthCheckerPage } from './pages/HealthCheckerPage'
+import { ScamAwarenessPage } from './pages/ScamAwarenessPage'
 
 function App() {
   return (
@@ -44,6 +45,7 @@ function App() {
                   <Route path="/what-if" element={<WhatIfPage />} />
                   <Route path="/health" element={<HealthCheckerPage />} />
                   <Route path="/fino" element={<FinoChatPage />} />
+                  <Route path="/scam-awareness" element={<ScamAwarenessPage />} />
 
                   {/* Not part of the design references' route list, kept reachable
                       so the existing backend-wired functionality isn't lost while
