@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { to: '/what-if', label: 'What-if' },
   { to: '/health', label: 'Health' },
   { to: '/learn', label: 'Learn' },
+  { to: '/mutual-funds', label: 'Mutual funds' },
   { to: '/scam-awareness', label: 'Scam safety' },
 ]
 

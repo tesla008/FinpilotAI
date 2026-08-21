@@ -20,6 +20,7 @@ from app.routers import (
     goals,
     health,
     markets,
+    mutualfunds,
     onboarding,
     reports,
     transactions,
@@ -67,6 +68,7 @@ app.include_router(demo.router)
 app.include_router(health.router)
 app.include_router(advice.router)
 app.include_router(education.router)
+app.include_router(mutualfunds.router)
 
 
 @app.get("/health")

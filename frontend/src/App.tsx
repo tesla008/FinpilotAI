@@ -23,6 +23,7 @@ import { FinoChatPage } from './pages/FinoChatPage'
 import { HealthCheckerPage } from './pages/HealthCheckerPage'
 import { ScamAwarenessPage } from './pages/ScamAwarenessPage'
 import { MarketEducationPage } from './pages/MarketEducationPage'
+import { MutualFundsPage } from './pages/MutualFundsPage'
 
 function App() {
   return (
@@ -48,6 +49,7 @@ function App() {
                   <Route path="/fino" element={<FinoChatPage />} />
                   <Route path="/scam-awareness" element={<ScamAwarenessPage />} />
                   <Route path="/learn" element={<MarketEducationPage />} />
+                  <Route path="/mutual-funds" element={<MutualFundsPage />} />
 
                   {/* Not part of the design references' route list, kept reachable
                       so the existing backend-wired functionality isn't lost while

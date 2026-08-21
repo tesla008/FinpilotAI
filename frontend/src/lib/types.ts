@@ -434,3 +434,42 @@ export interface EducationProgress {
   completed_lesson_ids: string[]
   total_lesson_count: number
 }
+
+// --- Mutual funds ---
+
+export interface CuratedSchemeSummary {
+  scheme_code: number
+  scheme_name: string
+  category: string
+  category_label: string
+  latest_nav: number
+  change_pct_30d: number | null
+  is_stale: boolean
+}
+
+export interface CuratedListResponse {
+  schemes: CuratedSchemeSummary[]
+  source: string
+}
+
+export interface NavPoint {
+  date: string
+  nav: number
+}
+
+export interface SchemeDetail {
+  scheme_code: number
+  scheme_name: string
+  fund_house: string
+  scheme_category: string
+  latest_nav: number
+  latest_date: string
+  change_pct_30d: number | null
+  history: NavPoint[]
+  is_stale: boolean
+}
+
+export interface FinoBuddyResponse {
+  matched_categories: string[]
+  schemes: CuratedSchemeSummary[]
+}
