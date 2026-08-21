@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useCurrency } from '../lib/currency'
 import { formatMoney } from '../lib/format'
+import { WhatIfSpotArt } from '../components/illustrations/WhatIfSpotArt'
 import {
   adjustableCategories,
   currentSavedMinor,
@@ -76,9 +77,12 @@ export function WhatIfPage() {
   return (
     <div>
       <div className="mb-8 flex items-baseline justify-between">
-        <div>
-          <h1 className="font-heading text-h2 font-bold text-heading">What-if simulator</h1>
-          <p className="mt-1.5 text-sm text-muted">Adjust the levers and watch your forecast move</p>
+        <div className="flex items-center gap-3">
+          <WhatIfSpotArt />
+          <div>
+            <h1 className="font-heading text-h2 font-bold text-heading">What-if simulator</h1>
+            <p className="mt-1.5 text-sm text-muted">Adjust the levers and watch your forecast move</p>
+          </div>
         </div>
         <button onClick={reset} className="rounded-sm bg-hairline px-4.5 py-2.5 text-[13.5px] font-semibold text-secondary">
           Reset

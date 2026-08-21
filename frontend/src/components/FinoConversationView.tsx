@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { useFino } from '../context/FinoContext'
 import { useAuth } from '../context/AuthContext'
 import { FinoMark } from './FinoMark'
+import { FinoMascot } from './illustrations/FinoMascot'
 import { ProfileAvatar } from './ProfileAvatar'
 
 const SUGGESTED_PROMPTS: { match: (path: string) => boolean; prompts: string[] }[] = [
@@ -50,7 +51,7 @@ export function FinoConversationView({ compact = false }: { compact?: boolean })
 
         {loaded && messages.length === 0 && (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <FinoMark size={40} />
+            <FinoMascot size={compact ? 32 : 96} />
             <div className="font-heading text-sm font-semibold text-heading">Hi, I'm Fino.</div>
             <p className="max-w-[260px] text-xs text-muted">
               Ask me about your spending, your goals, or how to do something in FinPilot.

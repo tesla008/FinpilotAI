@@ -6,6 +6,7 @@ import { formatDate, formatMoney } from '../lib/format'
 import { useFino } from '../context/FinoContext'
 import { Skeleton } from '../components/Skeleton'
 import { AdviceRecommendationCard } from '../components/AdviceRecommendationCard'
+import { EmptyAdviceArt } from '../components/illustrations/EmptyAdviceArt'
 import type { AdviceHistoryItem, AdviceHorizon, AdviceRecommendation, AdviceResponse, Category, RecommendationStatus } from '../lib/types'
 
 const SEVERITY_STYLE: Record<string, { border: string; text: string }> = {
@@ -207,7 +208,10 @@ export function AdvicePage() {
           </p>
         )}
         {data.recommendations.length === 0 ? (
-          <p className="card p-6 text-sm text-muted">Not enough data yet for specific recommendations — add more transactions to unlock these.</p>
+          <div className="card flex flex-col items-center gap-2 p-6 text-center">
+            <EmptyAdviceArt />
+            <p className="text-sm text-muted">Not enough data yet for specific recommendations — add more transactions to unlock these.</p>
+          </div>
         ) : (
           <div className="space-y-6">
             {groupedRecommendations.map((group) => (

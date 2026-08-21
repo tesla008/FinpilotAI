@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { formatMonth } from '../lib/format'
 import { HealthGauge } from '../components/HealthGauge'
 import { Skeleton } from '../components/Skeleton'
+import { EmptyHealthDataArt } from '../components/illustrations/EmptyHealthDataArt'
 import type { HealthScoreResponse } from '../lib/types'
 
 const BAND_COLOR: Record<string, string> = {
@@ -82,7 +83,8 @@ export function HealthCheckerPage() {
       )}
 
       {data.score === null ? (
-        <div className="card-lifted px-6 py-16 text-center">
+        <div className="card-lifted flex flex-col items-center gap-2 px-6 py-16 text-center">
+          <EmptyHealthDataArt />
           <p className="text-sm text-muted">Not enough transaction data yet to compute a health score. Add some transactions to get started.</p>
         </div>
       ) : (

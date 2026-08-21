@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { BrandMark } from '../components/BrandMark'
+import { DotGridDivider } from '../components/illustrations/DotGridDivider'
 import type { OnboardingProfile, OnboardingQuestion } from '../lib/types'
 
 export function OnboardingPage() {
@@ -101,8 +102,9 @@ export function OnboardingPage() {
   const canContinue = isMulti ? selectedList.length > 0 : !!selection
 
   return (
-    <div className="flex min-h-screen flex-col bg-canvas">
-      <header className="flex items-center justify-between px-6 py-5 sm:px-10">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-canvas">
+      <DotGridDivider className="pointer-events-none absolute inset-0 z-0" />
+      <header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
         <BrandMark size={22} />
         <button
           onClick={handleSkipWholeQuiz}
@@ -113,7 +115,7 @@ export function OnboardingPage() {
         </button>
       </header>
 
-      <div className="px-6 sm:px-10">
+      <div className="relative z-10 px-6 sm:px-10">
         <div className="mx-auto h-1.5 w-full max-w-lg overflow-hidden rounded-full bg-hairline">
           <div
             className="h-full rounded-full bg-primary transition-all duration-300"
@@ -125,7 +127,7 @@ export function OnboardingPage() {
         </div>
       </div>
 
-      <main className="flex flex-1 items-center justify-center px-6 py-8 sm:px-10">
+      <main className="relative z-10 flex flex-1 items-center justify-center px-6 py-8 sm:px-10">
         <div className="w-full max-w-lg rounded-lg bg-card p-8 shadow-[var(--shadow-card)]">
           <h1 className="font-heading text-h4 font-bold text-heading">{question.prompt}</h1>
           {question.help_text && <p className="mt-2 text-sm text-muted">{question.help_text}</p>}

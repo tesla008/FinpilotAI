@@ -3,6 +3,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { HeroBrand } from '../components/HeroBrand'
 import { BrandMark } from '../components/BrandMark'
 import { Reveal } from '../components/Reveal'
+import { HeroIllustration } from '../components/illustrations/HeroIllustration'
+import { ScamAwarenessArt } from '../components/illustrations/ScamAwarenessArt'
+import { DotGridDivider } from '../components/illustrations/DotGridDivider'
+import { MeshDivider } from '../components/illustrations/MeshDivider'
 import { useAuth } from '../context/AuthContext'
 import { useCurrency } from '../lib/currency'
 import { formatMoney } from '../lib/format'
@@ -91,6 +95,7 @@ export function LandingPage() {
       {/* HERO */}
       <section className="relative overflow-hidden px-6 pt-16 sm:px-12">
         <div className="hero-mesh pointer-events-none absolute inset-0 z-0" />
+        <HeroIllustration className="pointer-events-none absolute inset-0 z-0" />
         <div className="relative z-10 mx-auto max-w-[900px] text-center">
           <HeroBrand />
           <h1 className="font-heading text-[40px] font-bold tracking-tight text-heading sm:text-display">
@@ -241,14 +246,15 @@ export function LandingPage() {
 
       {/* HOW IT WORKS */}
       <Reveal>
-        <section className="mx-auto max-w-[1320px] px-6 py-20 sm:px-12">
-          <div className="mb-14 text-center">
+        <section className="relative mx-auto max-w-[1320px] overflow-hidden px-6 py-20 sm:px-12">
+          <DotGridDivider className="pointer-events-none absolute inset-0 z-0" />
+          <div className="relative z-10 mb-14 text-center">
             <div className="mb-3.5 text-caption font-semibold tracking-[0.08em] text-primary uppercase">
               How it works
             </div>
             <h2 className="font-heading text-h2 font-bold tracking-tight text-heading">Three steps, start to finish.</h2>
           </div>
-          <div className="grid grid-cols-1 gap-12 sm:grid-cols-3">
+          <div className="relative z-10 grid grid-cols-1 gap-12 sm:grid-cols-3">
             {howItWorksSteps.map((step) => (
               <div key={step.number} className="text-center">
                 <div className="font-heading mx-auto mb-5 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-[17px] font-bold text-white">
@@ -264,8 +270,9 @@ export function LandingPage() {
 
       {/* SCAN A SCREENSHOT */}
       <Reveal>
-        <section className="mx-auto max-w-[1320px] px-6 py-20 sm:px-12">
-          <div className="mb-14 text-center">
+        <section className="relative mx-auto max-w-[1320px] overflow-hidden px-6 py-20 sm:px-12">
+          <MeshDivider className="pointer-events-none absolute inset-0 z-0" />
+          <div className="relative z-10 mb-14 text-center">
             <div className="mb-3.5 text-caption font-semibold tracking-[0.08em] text-primary uppercase">
               Scan a screenshot
             </div>
@@ -277,7 +284,7 @@ export function LandingPage() {
             </p>
           </div>
 
-          <div className="mx-auto flex max-w-[720px] flex-col items-center gap-8 sm:flex-row sm:justify-center">
+          <div className="relative z-10 mx-auto flex max-w-[720px] flex-col items-center gap-8 sm:flex-row sm:justify-center">
             {/* PHONE MOCKUP */}
             <div className="w-[220px] flex-none rounded-[28px] border-[6px] border-heading bg-card p-1 shadow-[0_30px_60px_-24px_rgba(30,30,40,0.35)]">
               <div className="rounded-[22px] bg-canvas px-4 pt-6 pb-8">
@@ -340,6 +347,7 @@ export function LandingPage() {
           />
           <div className="relative px-6 pt-14 sm:px-12">
             <div className="mx-auto mb-10 max-w-[560px] text-center">
+              <ScamAwarenessArt className="mx-auto mb-4" />
               <h2 className="font-heading text-h2 font-bold tracking-tight text-heading">Stay safe with FinPilot</h2>
               <p className="mt-2.5 text-[15px] text-secondary">
                 Financial scams often impersonate trusted apps. Here's what FinPilot will never ask of you.

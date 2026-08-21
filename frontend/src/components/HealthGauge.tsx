@@ -7,7 +7,7 @@ export function HealthGauge({ score }: { score: number | null }) {
   const angle = score != null ? score * 1.8 : 0
 
   return (
-    <svg viewBox="0 0 320 210" width="100%" height="auto" role="img" aria-label={score != null ? `Health score gauge, ${score} out of 100` : 'Health score gauge, not enough data yet'}>
+    <svg viewBox="0 0 320 210" width="100%" role="img" aria-label={score != null ? `Health score gauge, ${score} out of 100` : 'Health score gauge, not enough data yet'}>
       <g fill="none" strokeWidth="22" strokeLinecap="butt">
         <path d="M50 170 A110 110 0 0 1 82.2 92.2" stroke="var(--color-muted)" strokeOpacity=".45" />
         <path d="M82.2 92.2 A110 110 0 0 1 160 60" stroke="var(--color-warning)" strokeOpacity=".55" />
