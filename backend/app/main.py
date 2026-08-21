@@ -14,6 +14,7 @@ from app.routers import (
     budgets,
     categories,
     demo,
+    education,
     fino,
     forecasts,
     goals,
@@ -65,6 +66,7 @@ app.include_router(fino.router)
 app.include_router(demo.router)
 app.include_router(health.router)
 app.include_router(advice.router)
+app.include_router(education.router)
 
 
 @app.get("/health")

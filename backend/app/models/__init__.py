@@ -1,6 +1,7 @@
 from app.models.advice import Advice, AdviceActionState
 from app.models.budget import Budget
 from app.models.category import Category
+from app.models.education_progress import EducationProgress
 from app.models.fino_message import FinoMessage
 from app.models.forecast import Forecast
 from app.models.goal import Goal
@@ -23,4 +24,5 @@ __all__ = [
     "RefreshToken",
     "UserProfile",
     "FinoMessage",
+    "EducationProgress",
 ]

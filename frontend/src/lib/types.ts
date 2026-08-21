@@ -411,3 +411,26 @@ export interface TransactionExtraction {
   unreadable_fields: string[]
   notes: string | null
 }
+
+// --- Market education ---
+
+export interface EducationLesson {
+  id: string
+  title: string
+  description: string
+  youtube_id: string
+  source: string
+}
+
+export interface EducationModule {
+  id: string
+  title: string
+  level: string
+  description: string
+  lessons: EducationLesson[]
+}
+
+export interface EducationProgress {
+  completed_lesson_ids: string[]
+  total_lesson_count: number
+}
