@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     # inertness proof.
     health_checker_enabled: bool = True
 
+    # Free tier at https://www.marketaux.com/ — 100 requests/day. The news
+    # feed degrades to a clean "unavailable" state (never a 5xx) when this
+    # is unset, same as ANTHROPIC_API_KEY's graceful degradation.
+    marketaux_api_key: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

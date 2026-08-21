@@ -473,3 +473,22 @@ export interface FinoBuddyResponse {
   matched_categories: string[]
   schemes: CuratedSchemeSummary[]
 }
+
+// --- Finance news ---
+
+export interface NewsArticle {
+  uuid: string
+  title: string
+  description: string
+  url: string
+  image_url: string | null
+  source: string
+  published_at: string
+}
+
+export interface NewsResponse {
+  articles: NewsArticle[]
+  is_available: boolean
+  is_stale: boolean
+  source: string
+}
